@@ -66,19 +66,7 @@ def create_merged_dataframe(marm_data: pl.DataFrame,
     # Merge all data
     merged_df = pl.concat([marm_data, umap_df, clusters_df], how='horizontal')
 
-    # Define clusters that are considered 'cool'
-    COOL_CLUSTERS = [2, 4, 7, 8, 9, 10, 11, 14]
-
-    # Add classification column
-    classification = (
-        pl.when(pl.col('cluster').cast(pl.Int64).is_in(COOL_CLUSTERS))
-        .then(pl.lit('cool'))
-        .otherwise(pl.lit('hot'))
-    )
-    merged_df = merged_df.with_columns(classification.alias('classif'))
-
     return merged_df
-
 
 def plot_umap_by_cluster(merged_df: pl.DataFrame):
     """Plot UMAP visualization colored by cluster."""
@@ -128,60 +116,6 @@ def plot_umap_by_cluster(merged_df: pl.DataFrame):
     plt.tight_layout()
     plt.savefig("figures/marm_lesion_UMAP_cluster.png", dpi=300, bbox_inches='tight')
     plt.show()
-
-
-def plot_umap_by_classification(merged_df: pl.DataFrame):
-    """Plot UMAP visualization colored by cool/hot classification."""
-    plt.figure(figsize=(10, 8))
-    
-    # Create color array based on classification
-    colors = np.array(['lightblue' if c == 'cool' else 'red' 
-                      for c in merged_df['classif'].to_numpy()])
-    
-    # Create scatter plot
-    plt.scatter(
-        merged_df['UMAP1'].to_numpy(),
-        merged_df['UMAP2'].to_numpy(),
-        c=colors,
-        s=100
-    )
-    
-    # Create legend
-    legend_elements = [
-        plt.Line2D(
-            [0], [0],
-            marker='o',
-            color='w',
-            markerfacecolor='lightblue',
-            label='Cool',
-            markersize=10
-        ),
-        plt.Line2D(
-            [0], [0],
-            marker='o',
-            color='w',
-            markerfacecolor='red',
-            label='Hot',
-            markersize=10
-        )
-    ]
-    
-    plt.legend(
-        handles=legend_elements,
-        title="Classification",
-        loc='center left',
-        bbox_to_anchor=(1, 0.5)
-    )
-    
-    plt.xlabel('UMAP1')
-    plt.ylabel('UMAP2')
-    plt.title('UMAP of Lesions by Classification')
-    plt.xticks([])
-    plt.yticks([])
-    plt.tight_layout()
-    plt.savefig("figures/marm_lesion_UMAP_classif.png", dpi=300, bbox_inches='tight')
-    plt.show()
-
 
 def create_feature_heatmap(data_path: str):
     """Create heatmap and swarm plots of features by cluster.
@@ -274,7 +208,6 @@ def main():
 
     # Generate visualizations
     plot_umap_by_cluster(merged_df)
-    plot_umap_by_classification(merged_df)
 
     # Save results
     merged_df.write_csv("data/marm_data_wide_clustered.csv")
