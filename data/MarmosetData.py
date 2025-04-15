@@ -59,7 +59,7 @@ class MarmosetData:
         if 'classif' in self.data.columns:
             filtered_data = self.data.filter(
                 pl.col('classif').is_in(['hot'])
-            )            
+            ).sort(['Compound', 'Lesion'])            
             return self._create_new_instance(filtered_data)
         else: 
             raise ValueError("Lesion class not found.")
@@ -69,7 +69,7 @@ class MarmosetData:
         if 'classif' in self.data.columns:
             filtered_data = self.data.filter(
                 pl.col('classif').is_in(['cool'])
-            )
+            ).sort(['Compound', 'Lesion'])
             return self._create_new_instance(filtered_data)
         else:
             raise ValueError("Lesion class not found.")
