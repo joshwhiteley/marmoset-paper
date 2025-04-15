@@ -1,7 +1,8 @@
 import polars as pl
-import dash_bio
 import numpy as np
 import pandas as pd
+from scipy.cluster.hierarchy import linkage
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 marmoset_data = pl.read_csv("data/marm_data_wide_clustered.csv")
@@ -58,21 +59,26 @@ clustergram_input_data = median_cluster_data.select(
     [pl.col(str(c)) for c in range(16)]  
 ).to_numpy()
 
-clustergram = dash_bio.Clustergram(
-     data=clustergram_input_data, 
-     column_labels=clusters, 
-     row_labels=clustergram_features,  
-     width=1500,
-     link_method="average",
-     row_dist="cosine",
-     col_dist="cosine",
-     color_map="ylorrd",
-     plot_bg_color="white",
-     paper_bg_color="white",
-)
+# calculate linkage matrices
+row_linkage = linkage(clustergram_input_data, method='average', metric='cosine')
+col_linkage = linkage(clustergram_input_data.transpose(), method='average', metric='cosine')
 
-clustergram.show()
-clustergram.write_image("marmoset_LCD_clustergram.png")
+# clustergram
+g = sns.clustermap(clustergram_input_data,
+                   row_linkage=row_linkage,
+                   col_linkage=col_linkage,
+                   cmap='YlOrRd',
+                   figsize=(12, 8),
+                   col_cluster=True,
+                   row_cluster=False,
+                   yticklabels=clustergram_features)
+
+g.ax_heatmap.set_title('marmoset lcd cluster dendrogram', y=1.25)
+g.ax_heatmap.set_ylabel('feature')
+g.ax_heatmap.set_xlabel('cluster')
+g.ax_heatmap.tick_params(axis='y', rotation=0)
+
+g.savefig("figures/marmoset_clustergram.png", dpi=300, bbox_inches='tight')
 
 # the clustergram indicates that there are two main clusters
 # at the highest level of the tree.
