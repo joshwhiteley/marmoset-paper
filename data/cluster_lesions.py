@@ -115,6 +115,8 @@ def plot_umap_by_cluster(merged_df: pl.DataFrame):
     plt.yticks([])
     plt.tight_layout()
     plt.savefig("figures/marm_lesion_UMAP_cluster.png", dpi=300, bbox_inches='tight')
+    plt.savefig("figures/marm_lesion_UMAP_cluster.svg", format='svg')
+    plt.savefig("figures/marm_lesion_UMAP_cluster.eps", format='eps')
     plt.show()
 
 def create_feature_heatmap(data_path: str):
@@ -210,7 +212,7 @@ def main():
     plot_umap_by_cluster(merged_df)
 
     # Save results
-    merged_df.write_csv("data/marm_data_wide_clustered.csv")
+    #merged_df.write_csv("data/marm_data_wide_clustered.csv")
 
     # Create feature heatmap
     create_feature_heatmap("data/marm_data_wide_clustered.csv")
