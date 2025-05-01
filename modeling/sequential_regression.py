@@ -6,14 +6,21 @@ to predict lesion progression across multiple timepoints.
 
 import polars as pl
 import numpy as np
+import datetime
+from pathlib import Path
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
+
+
 from data.MarmosetData import MarmosetData
 from data.InVitroData import DiamondData
+from helpers.PlottingFunctions import (
+    plot_lesion_progressions,
+    plot_mse_results
+)
 from helpers.ModelingFunctions import (
     impute_within_compound,
     split_by_compound,
-    plot_lesion_progressions
 )
 
 
@@ -27,7 +34,10 @@ def main():
         "n_estimators": 100,
         "max_depth": 10,
         "save_figures": True,
-        "save_dir": "figures/predictions/in_vitro_plus_marm",
+        "figure_save_dir": "figures/predictions/marm_only",
+        "save_model_results": True,
+        "model_results_dir": "modeling/results",
+        "figure_save_format": "svg",
         "debug": False
     }
     
@@ -40,7 +50,6 @@ def main():
     
     # Get severe lesions data
     severe_lesions = marmoset_data.get_severe_lesions().data
-    less_severe_lesions = marmoset_data.get_less_severe_lesions().data
     
     # Print diagnostic info about severe lesions
     print("\nDiagnostic Info:")
@@ -89,7 +98,7 @@ def main():
         print("Using Diamond data only")
     elif MODEL_CONFIG["marm_only"]:
         base_input_features = timepoints["tp2"]
-        print("Using Marmoset data only")
+        print("Using Marmoset data only")   
     else:
         base_input_features = timepoints["tp2"] + combo_features
         print("Using combined Diamond and Marmoset data")
@@ -182,12 +191,38 @@ def main():
             "MSE": mse
         })
     
-    # Create and display MSE results table
+    # create, display, and save MSE + models
     mse_df = pl.DataFrame(mse_results)
     print("\nMean Squared Error by Timepoint:")
     print(mse_df)
     
-    # Generate and save plots for each compound
+    mse_prefix = ""
+    if MODEL_CONFIG["diamond_only"]:
+        mse_prefix = "d"
+    elif MODEL_CONFIG["marm_only"]:
+        mse_prefix = "m"
+    elif ~MODEL_CONFIG["diamond_only"] & ~MODEL_CONFIG["marm_only"]:
+        mse_prefix = "b"
+
+    now = datetime.datetime.now().strftime("%Y%m%d")
+    
+    if MODEL_CONFIG["save_model_results"]:
+        model_save_path = Path(MODEL_CONFIG["model_results_dir"])
+        model_save_path.mkdir(parents=True, exist_ok=True)
+        
+        mse_df.write_csv(f"{now}_{mse_prefix}_{MODEL_CONFIG['random_state']}_MSE.csv")
+        
+        #TODO: SAVE MODELS
+    
+    plot_mse_results(
+        mse_df=mse_df,
+        save_path=MODEL_CONFIG["model_results_dir"],
+        save_prefix=mse_prefix,
+        save_format=MODEL_CONFIG["figure_save_format"],
+        save_bool=True
+    )
+    
+    # generate and save plots for each compound
     compounds = test_pred_df["Compound"].unique().to_list()
     for compound in compounds:
         compound_test = test.filter(pl.col("Compound") == compound)
@@ -198,7 +233,7 @@ def main():
             num_lesions=len(compound_test),
             test_df=compound_test,
             pred_df=compound_pred,
-            save_dir=MODEL_CONFIG["save_dir"],
+            save_dir=MODEL_CONFIG["figure_save_dir"],
             save_bool=MODEL_CONFIG["save_figures"],
             random_state=MODEL_CONFIG["random_state"]
         )
