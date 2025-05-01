@@ -5,6 +5,8 @@ from scipy.cluster.hierarchy import linkage
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from helpers.constants import SEVERE_CLUSTERS, LESS_SEVERE_CLUSTERS, SEVERE_COLOR_TUPLE, LESS_SEVERE_COLOR_TUPLE
+
 marmoset_data = pl.read_csv("data/marm_data_wide_clustered.csv")
 
 clustergram_features = ["TP2_MeanSUV",
@@ -79,6 +81,7 @@ g.ax_heatmap.set_xlabel('cluster')
 g.ax_heatmap.tick_params(axis='y', rotation=0)
 
 g.savefig("figures/marmoset_clustergram.png", dpi=300, bbox_inches='tight')
+g.savefig("figures/marmoset_clustergram.svg", format='svg')
 
 # the clustergram indicates that there are two main clusters
 # at the highest level of the tree.
@@ -90,19 +93,16 @@ g.savefig("figures/marmoset_clustergram.png", dpi=300, bbox_inches='tight')
 # we can assign these clusters to the actual dataframe accordingly
 # and save that file accordingly for future analysis
 
-# Add classification based on clustergram analysis
-COOL_CLUSTERS = [1, 13, 10, 6, 9, 7, 3, 8]
-
-# Add classification column
+# add classification column
 classification = (
-    pl.when(pl.col('cluster').cast(pl.Int64).is_in(COOL_CLUSTERS))
+    pl.when(pl.col('cluster').cast(pl.Int64).is_in(LESS_SEVERE_CLUSTERS))
     .then(pl.lit('cool'))
     .otherwise(pl.lit('hot'))
 )
 marmoset_data = marmoset_data.with_columns(classification.alias('classif'))
 
 # Save the updated dataframe
-marmoset_data.write_csv("data/marm_data_wide_clustered_classif.csv")
+#marmoset_data.write_csv("data/marm_data_wide_clustered_classif.csv")
 
 
 def plot_umap_by_classification(df: pl.DataFrame):
@@ -110,8 +110,9 @@ def plot_umap_by_classification(df: pl.DataFrame):
     plt.figure(figsize=(10, 8))
     
     # Create color array based on classification
-    colors = np.array(['lightblue' if c == 'cool' else 'red' 
-                      for c in df['classif'].to_numpy()])
+    colors = np.array([LESS_SEVERE_COLOR_TUPLE if c == 'cool'
+                        else SEVERE_COLOR_TUPLE
+                        for c in df['classif'].to_numpy()])
     
     # Create scatter plot
     plt.scatter(
@@ -126,7 +127,7 @@ def plot_umap_by_classification(df: pl.DataFrame):
             [0], [0],
             marker='o',
             color='w',
-            markerfacecolor='lightblue',
+            markerfacecolor=LESS_SEVERE_COLOR_TUPLE,
             label='Cool',
             markersize=10
         ),
@@ -134,7 +135,7 @@ def plot_umap_by_classification(df: pl.DataFrame):
             [0], [0],
             marker='o',
             color='w',
-            markerfacecolor='red',
+            markerfacecolor=SEVERE_COLOR_TUPLE,
             label='Hot',
             markersize=10
         )
@@ -154,6 +155,7 @@ def plot_umap_by_classification(df: pl.DataFrame):
     plt.yticks([])
     plt.tight_layout()
     plt.savefig("figures/marm_lesion_UMAP_classif.png", dpi=300, bbox_inches='tight')
+    plt.savefig("figures/marm_lesion_UMAP_classif.svg", format='svg')
     plt.show()
 
 
