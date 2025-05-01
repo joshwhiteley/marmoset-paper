@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+from helpers.constants import SEVERE_COLOR_TUPLE, LESS_SEVERE_COLOR_TUPLE
 import warnings
 
 # Suppress specific warnings if needed
