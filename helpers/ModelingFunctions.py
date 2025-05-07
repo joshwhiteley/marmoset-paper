@@ -1,4 +1,5 @@
-"""Helper functions for data modeling and preprocessing.
+"""
+Helper functions for data modeling and preprocessing.
 
 This module provides functions for handling compound-specific data operations,
 including imputation and train-test splitting while maintaining compound integrity.
@@ -9,7 +10,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from pathlib import Path
-
 
 def impute_within_compound(
     df: pl.DataFrame,
