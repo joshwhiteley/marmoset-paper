@@ -1,13 +1,17 @@
 
 import polars as pl
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 from matplotlib.lines import Line2D
 from pathlib import Path
 from typing import Union, List, Optional
+import shap
 
 from helpers.ModelingFunctions import get_compound_abbreviation
+from helpers.FeatureAnalysisFunctions import categorize_features
+from helpers.constants import FEATURE_CATEGORY_COLORS
 
 def plot_lesion_progressions(
     compound: str,
@@ -17,28 +21,37 @@ def plot_lesion_progressions(
     debug: bool = False,
     save_dir: str = "figures/predictions",
     save_bool: bool = True,
-    random_state: int = 42
+    random_state: int = 42,
+    model_prefix: str = "none",
+    output_format: str = "none",
 ) -> None:
     """Plot lesion progressions for a given compound.
     
-    Args:
-        compound: Name of the compound to plot
-        num_lesions: Number of random lesions to plot
-        test_df: DataFrame containing true values
-        pred_df: DataFrame containing predicted values
-        debug: Whether to print debug information
-        save_dir: Directory to save figures
-        save_bool: Whether to save the figure
-        random_state: Random seed for reproducibility
+    args:
+    ------
+    - compound: Name of the compound to plot
+    - num_lesions: Number of random lesions to plot
+    - test_df: DataFrame containing true values
+    - pred_df: DataFrame containing predicted values
+    - debug: Whether to print debug information
+    - save_dir: Directory to save figures
+    - save_bool: Whether to save the figure
+    - random_state: Random seed for reproducibility
+    - model_prefix: b, d, or m, prefix for saving model names
+    - output_format: how to save the file
+        
+    returns:
+    ----- 
+    -> None
+    -> saves plots of lesion progression if save_bool is true.
+    
     """
-    # Create save directory if it doesn't exist
     save_path = Path(save_dir)
     save_path.mkdir(parents=True, exist_ok=True)
     
-    # Get abbreviated compound name
     abbrev = get_compound_abbreviation(compound)
     
-    # Filter data for the given compound
+    # filter data by compound
     compound_test = test_df.filter(pl.col("Compound") == compound)
     compound_pred = pred_df.filter(pl.col("Compound") == compound)
     
@@ -49,66 +62,59 @@ def plot_lesion_progressions(
         print(f"\nNumber of data points per lesion for {compound}:")
         print(lesion_counts)
     
-    # Randomly select lesions with fixed seed
+    # random lesion selection for plotting
     available_lesions = compound_test["Lesion"].unique().to_list()
-    #np.random.seed(random_state)
+    np.random.seed(random_state)
     selected_lesions = np.random.choice(
         available_lesions,
         size=min(num_lesions, len(available_lesions)),
         replace=False
     )
     
-    # Create figure with adjusted width to accommodate legends
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     fig.suptitle(f"Lesion Progressions for {compound}", fontsize=16)
     
-    # Timepoints for x-axis
+    # timepoints could be shifted to weeks
     timepoints = ['TP2', 'TP3', 'TP4', 'TP5', 'TP6']
     x = np.arange(len(timepoints))
     
-    # Create a color palette for the lesions
     colors = plt.cm.tab10(np.linspace(0, 1, len(selected_lesions)))
     
-    # Plot each lesion
+    # plot each lesion
     for idx, lesion in enumerate(selected_lesions):
-        # Get data for this lesion
         lesion_test = compound_test.filter(pl.col("Lesion") == lesion)
         lesion_pred = compound_pred.filter(pl.col("Lesion") == lesion)
         
-        # Extract values - take the first value if multiple exist
         hu_true = [lesion_test[f"TP{i}_MeanHU"].to_list()[0] 
-                  for i in range(2, 7)]
+                for i in range(2, 7)]
         hu_pred = [lesion_pred[f"TP{i}_MeanHU"].to_list()[0] 
-                  for i in range(3, 7)]
-        hu_pred = [hu_true[0]] + hu_pred  # Add TP2 value
+                for i in range(3, 7)]
+        hu_pred = [hu_true[0]] + hu_pred 
         
         suv_true = [lesion_test[f"TP{i}_MeanSUV"].to_list()[0] 
-                   for i in range(2, 7)]
+                for i in range(2, 7)]
         suv_pred = [lesion_pred[f"TP{i}_MeanSUV"].to_list()[0] 
-                   for i in range(3, 7)]
-        suv_pred = [suv_true[0]] + suv_pred  # Add TP2 value
+                for i in range(3, 7)]
+        suv_pred = [suv_true[0]] + suv_pred  
         
-        # Plot MeanHU with matching colors
+        #  meanHU
         ax1.plot(x, hu_true, 'o-', color=colors[idx], 
                 label=f'Lesion {lesion}', alpha=0.7)
         ax1.plot(x, hu_pred, 'o--', color=colors[idx], alpha=0.7)
         
-        # Plot MeanSUV with matching colors
+        # meanSUV
         ax2.plot(x, suv_true, 'o-', color=colors[idx], 
                 label=f'Lesion {lesion}', alpha=0.7)
         ax2.plot(x, suv_pred, 'o--', color=colors[idx], alpha=0.7)
     
-    # Customize MeanHU plot
     ax1.set_title('MeanHU')
     ax1.set_xlabel('Timepoint')
     ax1.set_ylabel('MeanHU')
-    # figure
     ax1.set_ylim(-375, -25)
     ax1.set_xticks(x)
     ax1.set_xticklabels(timepoints)
     ax1.grid(True, alpha=0.3)
     
-    # Customize MeanSUV plot
     ax2.set_title('MeanSUV')
     ax2.set_xlabel('Timepoint')
     ax2.set_ylabel('MeanSUV')
@@ -117,13 +123,12 @@ def plot_lesion_progressions(
     ax2.set_ylim(0.3, 5.2)
     ax2.grid(True, alpha=0.3)
     
-    # Create custom legend for line styles
+    # custom legend
     line_style_legend_elements = [
         Line2D([0], [0], color='black', linestyle='-', label='True'),
         Line2D([0], [0], color='black', linestyle='--', label='Predicted')
     ]
     
-    # Add legends
     legend1 = ax1.legend(bbox_to_anchor=(1.05, 1), 
                         loc='upper left', title="Lesions")
     legend2 = ax1.legend(
@@ -132,14 +137,14 @@ def plot_lesion_progressions(
         loc='center left',
         title="Line Style"
     )
-    ax1.add_artist(legend1)  # Add the first legend back after it was removed
+    ax1.add_artist(legend1)
     
     plt.tight_layout()
-    
     if save_bool:
-        save_file = save_path / f"{abbrev}_lesion_progressions.svg"
-        plt.savefig(save_file, bbox_inches='tight', dpi=300, format='svg')
-    plt.close()  # Close the figure to free memory
+        now = datetime.datetime.now().strftime("%Y%m%d")
+        save_file = save_path / f"{model_prefix}_{abbrev}_lesion_progressions_{now}.{output_format}"
+        plt.savefig(save_file, bbox_inches='tight', dpi=300, format=output_format)
+    plt.close()
 
 def plot_ground_truth_lesion_trajectory(
     data_df: pl.DataFrame,
@@ -152,30 +157,36 @@ def plot_ground_truth_lesion_trajectory(
     random_state: int = 42,
     output_format: str = "png"
 ) -> None:
-    """Plots the ground truth lesion trajectories for a given compound.
-
-    Args:
-        data_df: DataFrame containing the ground truth lesion data. 
-                 Expected columns: 'Compound', 'Lesion', 'TP{i}_MeanHU', 'TP{i}_MeanSUV' (for i=2..6).
-        compound: Name of the compound to plot.
-        num_lesions_to_plot: Number of random lesions to plot if specific_lesions is None.
-        specific_lesions: A list of specific lesion IDs to plot. If provided, num_lesions_to_plot is ignored.
-        save_dir: Directory to save the figure.
-        save_bool: Whether to save the figure.
-        random_state: Random seed for reproducibility when selecting random lesions.
     """
-    # Create save directory if it doesn't exist
+    Plots the ground truth lesion trajectories for a given compound.
+
+    args:
+    -----
+    - data_df: pl.DataFrame containing the ground truth lesion data. 
+    -- expected columns: 'Compound', 'Lesion', 'TP{i}_MeanHU', 'TP{i}_MeanSUV' (for i=2..6).
+    - compound: name of the compound to plot.
+    - num_lesions_to_plot: number of random lesions to plot if specific_lesions is None.
+    - specific_lesions: list of specific lesion IDs to plot. If provided, num_lesions_to_plot is ignored.
+    - save_dir: directory to save the figure.
+    - save_bool: whether to save the figure.
+    - random_state: random seed for reproducibility when selecting random lesions.
+    - output_format: type of file to save plots as
+    
+    returns:
+    ------
+    -> None
+    -> saves plots of ground truth lesion trajectories if save_bool is true
+    
+    """
     save_path = Path(save_dir)
     save_path.mkdir(parents=True, exist_ok=True)
 
-    # Get abbreviated compound name
     try:
-        abbrev = get_compound_abbreviation(compound) # Assumes this function is accessible
+        abbrev = get_compound_abbreviation(compound) 
     except Exception as e:
         print(f"Warning: Could not get abbreviation for {compound}. Using full name. Error: {e}")
-        abbrev = compound.replace("+", "_") # Basic fallback for filename
+        abbrev = compound.replace("+", "_")
 
-    # Filter data for the given compound
     compound_data = data_df.filter(pl.col("Compound") == compound)
 
     if compound_data.is_empty():
@@ -188,25 +199,22 @@ def plot_ground_truth_lesion_trajectory(
         print(f"No lesions found for compound: {compound}")
         return
 
-    # Select lesions to plot
     if specific_lesions:
         selected_lesions = [l for l in specific_lesions if l in available_lesions]
         if not selected_lesions:
-             print(f"None of the specified lesions {specific_lesions} found for compound {compound}.")
-             return
+            print(f"None of the specified lesions {specific_lesions} found for compound {compound}.")
+            return
         print(f"Plotting specified lesions for {compound}: {selected_lesions}")
     else:
         np.random.seed(random_state)
         selected_lesions = np.random.choice(
             available_lesions,
             size=min(num_lesions_to_plot, len(available_lesions)),
-            replace=False
+            replace=False,
         )
         print(f"Plotting {len(selected_lesions)} random lesions for {compound}: {selected_lesions.tolist()}")
 
-
-    # Create figure
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6)) # Adjusted figsize slightly
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6)) 
     fig.suptitle(f"Ground Truth Lesion Trajectories for {compound}", fontsize=16)
 
     # timepoints
@@ -219,20 +227,17 @@ def plot_ground_truth_lesion_trajectory(
     
     x = np.arange(len(timepoints))
 
-    # Create a color palette for the lesions
     colors = plt.cm.tab10(np.linspace(0, 1, len(selected_lesions)))
 
-    # Plot each selected lesion
+    # plot each selected lesion
     for idx, lesion in enumerate(selected_lesions):
-        # Get data for this specific lesion
         lesion_data = compound_data.filter(pl.col("Lesion") == lesion)
 
         if lesion_data.is_empty():
             print(f"Warning: No data found for lesion {lesion} in compound {compound} after filtering.")
             continue
             
-        # Extract ground truth values - take the first row if multiple exist for a lesion
-        # This assumes the input df might have duplicates per lesion, takes the first. Adjust if needed.
+        # extract ground truth values - take the first row if multiple exist for a lesion
         try:
             hu_true = [lesion_data[f"TP{i}_MeanHU"].to_list()[0] for i in range(2, 7)]
             suv_true = [lesion_data[f"TP{i}_MeanSUV"].to_list()[0] for i in range(2, 7)]
@@ -240,17 +245,17 @@ def plot_ground_truth_lesion_trajectory(
             print(f"Warning: Could not extract all timepoints for lesion {lesion}. Skipping.")
             continue
         except pl.ColumnNotFoundError as e:
-             print(f"Warning: Missing expected column for lesion {lesion}. Error: {e}. Skipping.")
-             continue
+            print(f"Warning: Missing expected column for lesion {lesion}. Error: {e}. Skipping.")
+            continue
 
 
-        # Plot MeanHU
+        # HU
         ax1.plot(x, hu_true, 'o-', color=colors[idx], label=f'Lesion {lesion}', alpha=0.8)
 
-        # Plot MeanSUV
+        # SUV
         ax2.plot(x, suv_true, 'o-', color=colors[idx], label=f'Lesion {lesion}', alpha=0.8)
 
-    # Customize MeanHU plot
+    # meanHU plot
     ax1.set_title('MeanHU')
     ax1.set_xlabel('Timepoint')
     ax1.set_ylabel('MeanHU')
@@ -259,103 +264,238 @@ def plot_ground_truth_lesion_trajectory(
     ax1.grid(True, alpha=0.3)
     ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title="Lesions")
 
-    # Customize MeanSUV plot
+    # meanSUV plot
     ax2.set_title('MeanSUV')
     ax2.set_xlabel('Timepoint')
     ax2.set_ylabel('MeanSUV')
     ax2.set_xticks(x)
     ax2.set_xticklabels(timepoints)
     ax2.grid(True, alpha=0.3)
-    # Optional: Add legend to second plot if needed, or rely on the first plot's legend
-    # ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title="Lesions")
 
-
-    plt.tight_layout(rect=[0, 0, 0.85, 1]) # Adjust layout to prevent legend overlap
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
 
     if save_bool:
         save_file = save_path / f"{abbrev}_ground_truth_lesions.{output_format}"
         try:
             plt.savefig(save_file, bbox_inches='tight', dpi=300, format=output_format)
-            print(f"Plot saved to: {save_file}")
+            print(f"MSE plot saved to: {save_file}")
         except Exception as e:
             print(f"Error saving plot: {e}")
     plt.close(fig) 
 
 
-def plot_mse_results(
-    mse_df: pl.DataFrame,
+def plot_performance_metrics(
+    metrics_df: pl.DataFrame,
     save_path: Union[str, Path],
-    plot_title: Optional[str] = "Model Mean Squared Error (MSE) by Timepoint",
+    outputs: list,
+    metrics: list = ["mse", "mae", "r2"],
     save_prefix: Optional[str] = "",
     save_format: Optional[str] = "png",
-    save_bool: bool = True
+    save_bool: bool = True,
 ) -> None:
     """
-    Generates and saves a bar chart visualizing MSE results by timepoint.
+    Generates and saves a bar chart visualizing performance metrics results by timepoint.
 
-    Args:
-        mse_df: Polars DataFrame with 'Timepoint' and 'MSE' columns.
-        save_path: Full path (including filename, e.g., 'results/errors/mse_plot.png')
-                   to save the plot image.
-        plot_title: The main title for the plot.
-        feature_set_name: Optional name describing the feature set used
-                          (e.g., 'Marmoset Only', 'Both') to add to the title.
+    args:
+    -----
+    - metrics_df: pl.DataFrame with various error metric information
+    - save_path: where to save the figures
+    - outputs: list of different PET/CT outputs (TP{}_meanHU, etc)
+    - metrics: list of error metrics to plot ["mse", "mae", "r2"]
+    - save_prefix: model type [b, m, d]
+    - save_format: filetype of figures saved
+    - save_bool: save the figures or not
+    
+    returns:
+    -----
+    -> None
+    -> saved plots of performance metrics in save_path if save_bool is true
+
     """
-    if mse_df is None or mse_df.is_empty():
-        print("MSE DataFrame is empty or None. Skipping plot generation.")
+    
+    now = datetime.datetime.now().strftime("%Y%m%d")
+    timepoints = sorted(metrics_df['timepoint'].unique().to_list())
+    
+    output_groups = {
+        "HU": [o for o in outputs if "HU" in o],
+        "SUV": [o for o in outputs if "SUV" in o]
+    }
+    
+    for metric in metrics:
+        for group_name, group_outputs in output_groups.items():
+            if not group_outputs:
+                continue
+            plt.figure(figsize=(10, 6))
+            bar_width = 0.8 / len(group_outputs)
+            indices = np.arange(len(timepoints))
+            for i, output in enumerate(group_outputs):
+                df_plot = metrics_df.filter(pl.col('output') == output).sort('timepoint')
+                yvals = df_plot[metric].to_list()
+                plt.bar(indices + i * bar_width, yvals, width=bar_width, label=output)
+                for j, y in enumerate(yvals):
+                    plt.text(indices[j] + i * bar_width, y, f"{y:.2f}", ha='center', va='bottom', fontsize=8)
+            plt.xlabel('Timepoint')
+            plt.ylabel(metric.upper())
+            plt.title(f"{metric.upper()} by timepoint ({group_name}) -- {save_prefix}")
+            plt.xticks(indices + bar_width * (len(group_outputs) - 1) / 2, [f"TP{int(tp)}" for tp in timepoints])
+            plt.legend(title="Output")
+            plt.grid(True, axis='y', alpha=0.3)
+            plt.tight_layout()
+            if save_bool:
+                Path(save_path).mkdir(parents=True, exist_ok=True)
+                filename = f"{save_prefix}_{metric}_{group_name}_tp_{now}.{save_format}"
+                plt.savefig(Path(save_path) / filename, bbox_inches="tight", dpi=300, format=save_format)
+                print(f"Saved: {Path(save_path) / filename}")
+            plt.close()
+
+    
+def plot_feature_importance_bars(
+    importance_df: pd.DataFrame,
+    tp_key: str,
+    save_path: Union[str, Path],
+    importance_col: str = 'importance',
+    top_n: int = 20,
+    title_suffix: str = 'mean decrease in impurity',
+    save_bool: bool = True,
+    save_format: str = 'png',
+    model_prefix: str = "none"
+) -> None:
+    """
+    creates and saves a bar chart for feature importance, colored by cat.
+    
+    args:
+    ------
+    - importance_df: pd.DataFrame with 'feature' and {importance_col} columns
+    - tp_key: timepoint key (tp3, etc.)
+    - save_path: directory to save plot if save_bool is true
+    - importance_col: name of column with importance values
+    - top_n: number of features to display
+    - title_suffix: suffix for plot title
+    - save_bool: true/false for saving plots generated
+    - save_format: type of file to save
+    - model_prefix: type of model
+    
+    returns:
+    -----
+    -> None
+    -> saves plots of feature importance stuff 
+    """
+    
+    if importance_df is None or importance_df.empty:
+        print(f"importance df is empty for {tp_key}")
         return
-
-    if 'Timepoint' not in mse_df.columns or 'MSE' not in mse_df.columns:
-        print(f"Error: mse_df must contain 'Timepoint' and 'MSE' columns. Found: {mse_df.columns}")
+    
+    if importance_col not in importance_df.columns:
+        print(f"error: importance column {importance_col} not found in df")
         return
-
-    # Ensure data is sorted by timepoint for consistent plotting
-    try:
-        # Extract numeric part of timepoint for sorting (e.g., 'TP3' -> 3)
-        mse_df = mse_df.with_columns(
-            pl.col('Timepoint').str.extract(r'(\d+)', 1).cast(pl.Int64).alias('tp_num')
-        ).sort('tp_num').drop('tp_num')
-    except Exception as e:
-        print(f"Warning: Could not sort timepoints numerically ({e}). Plotting in original order.")
-        # Fallback sort alphabetically if numeric fails
-        mse_df = mse_df.sort('Timepoint')
-
-
-    timepoints = mse_df['Timepoint'].to_list()
-    mse_values = mse_df['MSE'].to_list()
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    bars = ax.bar(timepoints, mse_values, color='skyblue')
-
-    # Add labels on top of bars
-    ax.bar_label(bars, fmt='%.4f', padding=3) # Format MSE to 4 decimal places
-
-    ax.set_xlabel("Timepoint")
-    ax.set_ylabel("Mean Squared Error (MSE)")
-
-    ax.set_title(plot_title)
-
-    # Adjust y-axis limits for better visualization (add some padding)
-    if mse_values:
-        max_mse = max(mse_values)
-        ax.set_ylim(0, max_mse * 1.15) # Add 15% padding above the max bar
-    else:
-        ax.set_ylim(0, 1) # Default if no data
-
-
-    plt.xticks(rotation=45, ha='right') # Rotate x-labels if they overlap
-    plt.tight_layout() # Adjust layout
-
+    
+    importance_df['category'] = importance_df['feature'].apply(categorize_features)
+    plot_df = importance_df[importance_df['category'] != 'metadata'].copy()
+    plot_df = plot_df.nlargest(top_n, importance_col).sort_values(by=importance_col, ascending=True)
+    
+    if plot_df.empty:
+        print(f"no non-metadata features with >0 importance found for {tp_key}")
+        return
+    
+    plt.figure(figsize=(10, max(6, top_n*0.3)))
+    
+    colors = [FEATURE_CATEGORY_COLORS.get(cat, FEATURE_CATEGORY_COLORS["unknown"]) for cat in plot_df['category']]
+    bars = plt.barh(plot_df['feature'], plot_df[importance_col], color=colors)
+    
+    plt.xlabel(f"importance ({title_suffix})")
+    plt.ylabel("feature")
+    plt.title(f"top {len(plot_df)} feature importances for {tp_key.upper()}")
+    plt.gca().margins(y=0.01)
+    
+    legend_handles = [plt.Rectangle((0,0),1,1, color=FEATURE_CATEGORY_COLORS[cat]) for cat in sorted(plot_df['category'].unique())]
+    legend_labels = sorted(plot_df['category'].unique())
+    plt.legend(legend_handles, legend_labels, title='feature category', bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+    
     if save_bool:
         now = datetime.datetime.now().strftime("%Y%m%d")
-        save_path = Path(save_path)
-        save_file = save_path / f"{save_prefix}_mse_{now}.{save_format}"
-        
+        save_path_obj = Path(save_path)
+        save_path_obj.mkdir(parents=True, exist_ok=True)
+        filename = f"{model_prefix}_{tp_key.upper()}_feature_importance_{title_suffix.replace(' ', '_')}_{now}.{save_format}"
+        full_save_path = save_path_obj / filename
         try:
-            plt.savefig(save_file, bbox_inches='tight', dpi=300, format=save_format)
-            print(f"Plot saved to: {save_file}")
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight', format=save_format)
+            print(f"{tp_key.upper()} importance plot saved to: {full_save_path}")
         except Exception as e:
-            print(f"Error saving plot: {e}")
-    plt.close(fig)
+            print(f"error saving importance plot: \n {e}")
+            
+def plot_shap_summary_dot(
+    shap_values: np.ndarray,
+    X_data_df: pd.DataFrame,
+    tp_key: str,
+    output_name: str,
+    save_path: Union[str, Path],
+    save_bool: bool = True,
+    save_format: str = 'png',
+    save_shap_df: bool = True,
+    model_prefix: str = "none",
+    debug: bool = False
+) -> None:
+    """
+    generates and saves a SHAP summary dot plot for specific model output
     
+    args:
+    ------
+    - shap_values: np array of SHAP values for specific output
+    - X_data_df: pd.DataFrame sample corresponding to shap_values
+    - tp_key: timepoint key (e.g., 'tp3')
+    - output_name: name of the target variable this plot represents
+    - save_path: directory path to save the plot
+    - save_bool: whether to save the plot
+    - save_format: type of file to save (png, eps)
+    - model_prefix: type of model
+    
+    returns:
+    -----
+    -> None
+    -> shap dot plots saved to save_path
+    
+    """
+    if shap_values is None or X_data_df is None or X_data_df.empty:
+        print(f"missing SHAP values or data for {tp_key}, output {output_name}")
+        return
+    
+    if debug:
+        print(f"generating SHAP summary plot for {tp_key} - output: {output_name}")
+        
+    try:
+        plt.figure()
+        shap.summary_plot(
+            shap_values,
+            X_data_df,
+            plot_type="dot",
+            show=False
+        )
+        plt.title(f"SHAP summary for {tp_key.upper()} - prediction: {output_name}")
+        plt.ylabel("feature name")
+        
+        if save_bool:
+            now = datetime.datetime.now().strftime("%Y%m%d")
+            save_path_obj = Path(save_path)
+            save_path_obj.mkdir(parents=True, exist_ok=True)
+            filename = f"{model_prefix}_{tp_key}_shap_summary_{output_name}_{now}.{save_format}"
+            full_save_path = save_path_obj / filename
+            try:
+                # Adjust layout before saving if needed
+                plt.tight_layout()
+                plt.savefig(full_save_path, dpi=300, bbox_inches='tight', format=save_format)
+                print(f"{tp_key.upper()} SHAP plot saved to: {full_save_path}")
+            except Exception as e:
+                print(f"error saving SHAP plot: {e}")
+        plt.close()
+        
+    except Exception as e:
+        print(F"error generating SHAP plot for {tp_key}, output {output_name}: {e}")
+        plt.close()
+        
+    if save_shap_df:
+        shap_df = pd.DataFrame(shap_values, columns=X_data_df.columns)
+        shap_df_path = Path(save_path) / f"{model_prefix}_{tp_key}_shap_values_{output_name}.csv"
+        shap_df.to_csv(shap_df_path, index=False)
+        print(f"- {tp_key.upper()}SHAP values DataFrame saved to: {shap_df_path}")
