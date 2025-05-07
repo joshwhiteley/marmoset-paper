@@ -1,4 +1,6 @@
-
+*.joblib
+marmoset_paper.egg-info/
 /.venv
 .DS_Store
 /.vscode
+archive/
