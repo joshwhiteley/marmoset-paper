@@ -465,6 +465,8 @@ def plot_shap_summary_dot(
         print(f"generating SHAP summary plot for {tp_key} - output: {output_name}")
         
     try:
+        np.random.seed(42)
+        
         plt.figure()
         shap.summary_plot(
             shap_values,
