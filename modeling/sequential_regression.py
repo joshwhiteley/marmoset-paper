@@ -6,7 +6,6 @@ to predict lesion progression across multiple timepoints.
 """
 
 import polars as pl
-import pandas as pd
 import numpy as np
 import datetime
 from pathlib import Path
@@ -17,7 +16,6 @@ from sklearn.metrics import (
     r2_score
 )
 import joblib
-import shap
 
 
 from data.MarmosetData import MarmosetData
@@ -44,7 +42,7 @@ def main():
     MODEL_CONFIG = {
         # data setup
         "diamond_only": False,                                  # bool
-        "marm_only": False,                                     # bool
+        "marm_only": True,                                     # bool
         "test_size": 0.2,                                       # float
 
         # model setup
@@ -91,7 +89,7 @@ def main():
         model_prefix = "d"
     elif MODEL_CONFIG["marm_only"]:
         model_prefix = "m"
-    elif ~MODEL_CONFIG["diamond_only"] & ~MODEL_CONFIG["marm_only"]:
+    else:
         model_prefix = "b"
 
     now = datetime.datetime.now().strftime("%Y%m%d")
@@ -107,23 +105,22 @@ def main():
     metadata_features = ["Compound", "Lesion"]
     
     # feature formatting
-    y_cols = [col for col in severe_lesions.columns 
+    y_cols = [col for col in severe_lesions.columns
               if any(f in col for f in y_features)]
     severe_data = severe_lesions.select(y_cols + metadata_features)
-    
+
     # timepoint organization
-    timepoints = {}
-    for tp in range(2, 7):
-        timepoints[f"tp{tp}"] = [
-            col for col in severe_data.columns if f"TP{tp}" in col
-        ]
-    
-    # in vitro feature preparation 
+    timepoints = {
+        f"tp{tp}": [col for col in severe_data.columns if f"TP{tp}" in col]
+        for tp in range(2, 7)
+    }
+
+    # in vitro feature preparation
     diamond_df = diamond_data.data.filter(
         pl.col('NumbDrugs') > 1
     ).drop('NumbDrugs')
     combo_features = [col for col in diamond_df.columns if "Drug" not in col]
-    
+
     # create merged dataframe
     X = severe_data.join(
         other=diamond_df,
@@ -158,7 +155,7 @@ def main():
         grouping_column='Compound'
     )
     
-    # train test splitting 
+    # train test splitting
     train, test = split_by_compound(
         X_imputed,
         grouping_column='Compound',
@@ -203,7 +200,7 @@ def main():
         features_for_training = base_input_features.copy()
         for prev_tp_num in range(3, tp_num):
             prev_tp_key = f"tp{prev_tp_num}"
-            features_for_training += timepoints[prev_tp_key] 
+            features_for_training.extend(timepoints[prev_tp_key])
 
         feature_names_per_model[tp_key] = features_for_training
         all_training_features.extend([f for f in features_for_training if f not in all_training_features])
@@ -233,7 +230,7 @@ def main():
         # model fitting
         try:
             model.fit(X_train_df, y_train_df)
-            models[tp_key] = model # Store trained model
+            models[tp_key] = model  # Store trained model
 
             # save models
             if MODEL_CONFIG["save_models"]:
@@ -247,7 +244,7 @@ def main():
             print(f"Error during model fitting for {tp_key}: {e}")
             return
 
-    print("..........\nModel training completed.\n----------")        
+    print("..........\nModel training completed.\n----------")
     
     # ------------------------------
     # Model Predictions
@@ -257,11 +254,12 @@ def main():
     for tp_num in range(3, 7):
         tp_key = f"tp{tp_num}"
         model = models[tp_key]
-        features = base_input_features.copy()
-        
-        # add previous tp features to prediction df
-        for prev_tp in range(3, tp_num):
-            features += timepoints[f"tp{prev_tp}"]
+
+        features = base_input_features + [
+            feature
+            for prev_tp in range(3, tp_num)
+            for feature in timepoints[f"tp{prev_tp}"]
+        ]
         
         # predict
         predictions = model.predict(test.select(features))
@@ -278,7 +276,7 @@ def main():
     # Model Performance Analysis
     # ------------------------------
 
-    # calculation of various performance metrics 
+    # calculation of various performance metrics
     metrics_results = []
     for tp_num in range(3, 7):
         tp_key = f"tp{tp_num}"
@@ -304,7 +302,7 @@ def main():
         model_save_path = Path(MODEL_CONFIG["model_results_dir"])
         model_save_path.mkdir(parents=True, exist_ok=True)
         
-        metrics_df.write_csv(f"{now}_{model_prefix}_{MODEL_CONFIG['random_state']}_performance.csv")
+        metrics_df.write_csv(model_save_path / f"{now}_{model_prefix}_{MODEL_CONFIG['random_state']}_performance.csv")
         
     outputs = metrics_df['output'].unique().to_list()
     plot_performance_metrics(
@@ -343,13 +341,11 @@ def main():
     # Feature Importance Analysis
     # ------------------------------
 
-    
     if ANALYSIS_CONFIG["perform_feature_analysis"]:
         print("\n----------\nBeginning feature analysis...\n----------\n")
         all_importance_results = {}
         analysis_save_path = Path(ANALYSIS_CONFIG["feature_analysis_dir"])
         analysis_save_path.mkdir(parents=True, exist_ok=True)
-
 
         for tp_key, model in models.items():
             if MODEL_CONFIG["debug"]: 
@@ -378,8 +374,9 @@ def main():
                 
             # permutation importance
             try:
-                X_val = test.select(current_features).fill_null(0).to_pandas()
-                y_val = test.select(timepoints[tp_key]).fill_null(0).to_pandas()
+                test_non_null = test.drop_nulls(subset=current_features + [timepoints[tp_key]])
+                X_val = test_non_null.select(current_features).to_pandas()
+                y_val = test_non_null.select(timepoints[tp_key]).to_pandas()
                 perm_importance_df = get_permutation_importance(
                     model=model,
                     X_val=X_val,
@@ -406,7 +403,15 @@ def main():
             # SHAP analysis
             try:
                 n_samples = min(1000, len(train))
-                X_train_sample_pd = train.sample(n=n_samples).select(current_features).to_pandas()
+                X_train_sample_pd = (
+                    train.sample(
+                        n=n_samples,
+                        with_replacement=False,
+                        seed=MODEL_CONFIG["random_state"]
+                    )
+                    .select(current_features)
+                    .to_pandas()
+                )
 
                 shap_values, explainer = calculate_shap_values(
                     model=model,
@@ -434,7 +439,7 @@ def main():
                             X_data_df=X_train_sample_pd,
                             tp_key=tp_key,
                             output_name=output_name,
-                            save_path=analysis_save_path,
+save_path=analysis_save_path,
                             save_bool=True,
                             save_format=ANALYSIS_CONFIG["figure_save_format"],
                             save_shap_df=True,
@@ -457,6 +462,7 @@ def main():
                     print(f"Mismatch between # of SHAP values and outputs for {tp_key}")
             except Exception as e:
                 print(f"Error during SHAP analysis/plotting for {tp_key}: {e}")
+
 
 if __name__ == "__main__":
     main()
