@@ -6,10 +6,13 @@ including imputation and train-test splitting while maintaining compound integri
 """
 
 import polars as pl
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import datetime
 from pathlib import Path
+from typing import Union, List, Optional
 
 def impute_within_compound(
     df: pl.DataFrame,
@@ -137,3 +140,54 @@ def get_compound_abbreviation(compound: str) -> str:
     
     # Join abbreviations
     return "".join(abbrevs)
+
+def export_shap_feature_data(
+    shap_values: np.ndarray,
+    X_df: pd.DataFrame,
+    feature_name: str,
+    tp_key: str,
+    output_name: str,
+    model_prefix: str,
+    save_path: Union[str, Path]
+) -> Path:
+    """
+    Exports per-sample SHAP and corresponding feature values for a single feature.
+
+    Parameters:
+    - shap_values: array of shape (n_samples, n_features)
+    - X_df: DataFrame of input features (index identifies each sample)
+    - feature_name: name of the feature to export
+    - tp_key: timepoint key (e.g., 'tp4')
+    - output_name: model output variable name
+    - model_prefix: prefix used for model-specific filenames
+    - save_path: directory path where CSV should be saved
+
+    Returns:
+    - Path to the saved CSV file
+    """
+    save_dir = Path(save_path)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.datetime.now().strftime("%Y%m%d")
+    if feature_name not in X_df.columns:
+        raise ValueError(f"Feature '{feature_name}' not found in X_df columns.")
+
+    # locate feature index
+    feat_idx = X_df.columns.get_loc(feature_name)
+    # construct export DataFrame
+    export_df = pd.DataFrame({
+        'sample_id': X_df.index.astype(str),
+        'feature_name': feature_name,
+        'feature_value': X_df.iloc[:, feat_idx].values,
+        'shap_value': shap_values[:, feat_idx]
+    })
+
+    # filename: e.g., "prefix_tp4_output_MeanHU_20250612_shap_data.csv"
+    filename = (
+        f"{model_prefix}_{tp_key}_{output_name}_"
+        f"{feature_name}_{now}_shap_data.csv"
+    )
+    file_path = save_dir / filename
+    export_df.to_csv(file_path, index=False)
+    print(f"Exported SHAP data for feature '{feature_name}' to: {file_path}")
+    return file_path

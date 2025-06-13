@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Union, List, Optional
 import shap
 
-from helpers.ModelingFunctions import get_compound_abbreviation
+from helpers.ModelingFunctions import get_compound_abbreviation, export_shap_feature_data
 from helpers.FeatureAnalysisFunctions import categorize_features
 from helpers.constants import FEATURE_CATEGORY_COLORS
 
@@ -438,35 +438,13 @@ def plot_shap_summary_dot(
     debug: bool = False
 ) -> None:
     """
-    generates and saves a SHAP summary dot plot for specific model output
-    
-    args:
-    ------
-    - shap_values: np array of SHAP values for specific output
-    - X_data_df: pd.DataFrame sample corresponding to shap_values
-    - tp_key: timepoint key (e.g., 'tp3')
-    - output_name: name of the target variable this plot represents
-    - save_path: directory path to save the plot
-    - save_bool: whether to save the plot
-    - save_format: type of file to save (png, eps)
-    - model_prefix: type of model
-    
-    returns:
-    -----
-    -> None
-    -> shap dot plots saved to save_path
-    
+    generates and saves a SHAP summary dot plot for specific model output,
+    plus a zoomed-in version that drops the top-N features depending on tp_key.
     """
-    if shap_values is None or X_data_df is None or X_data_df.empty:
-        print(f"missing SHAP values or data for {tp_key}, output {output_name}")
-        return
-    
-    if debug:
-        print(f"generating SHAP summary plot for {tp_key} - output: {output_name}")
-        
     try:
         np.random.seed(42)
-        
+
+        # 1) Main SHAP summary
         plt.figure()
         shap.summary_plot(
             shap_values,
@@ -476,28 +454,75 @@ def plot_shap_summary_dot(
         )
         plt.title(f"SHAP summary for {tp_key.upper()} - prediction: {output_name}")
         plt.ylabel("feature name")
-        
+
         if save_bool:
             now = datetime.datetime.now().strftime("%Y%m%d")
             save_path_obj = Path(save_path)
             save_path_obj.mkdir(parents=True, exist_ok=True)
-            filename = f"{model_prefix}_{tp_key}_shap_summary_{output_name}_{now}.{save_format}"
-            full_save_path = save_path_obj / filename
-            try:
-                # Adjust layout before saving if needed
+
+            # save main plot
+            main_filename = f"{model_prefix}_{tp_key}_shap_summary_{output_name}_{now}.{save_format}"
+            plt.tight_layout()
+            plt.savefig(save_path_obj / main_filename, dpi=300, bbox_inches='tight', format=save_format)
+            print(f"{tp_key.upper()} SHAP plot saved to: {save_path_obj / main_filename}")
+
+            # 2) Zoomed-in SHAP summary: drop the top-N features
+            cutoff_map = {
+                'tp3': 2,
+                'tp4': 4,
+                'tp5': 6,
+                'tp6': 8,
+            }
+            cutoff = cutoff_map.get(tp_key.lower())
+            if cutoff:
+                # rank features by mean absolute SHAP
+                mean_abs = np.mean(np.abs(shap_values), axis=0)
+                order = np.argsort(mean_abs)[::-1]
+                zoom_indices = order[cutoff:]
+
+                # slice out just the lower-ranked features
+                zoom_shap = shap_values[:, zoom_indices]
+                zoom_X    = X_data_df.iloc[:, zoom_indices]
+
+                plt.figure()
+                shap.summary_plot(
+                    zoom_shap,
+                    zoom_X,
+                    plot_type="dot",
+                    show=False
+                )
+                plt.title(f"SHAP summary for {tp_key.upper()} - prediction: {output_name} (zoomed)")
+
+                zoom_filename = f"{model_prefix}_{tp_key}_shap_summary_{output_name}_{now}_zoomed.{save_format}"
                 plt.tight_layout()
-                plt.savefig(full_save_path, dpi=300, bbox_inches='tight', format=save_format)
-                print(f"{tp_key.upper()} SHAP plot saved to: {full_save_path}")
-            except Exception as e:
-                print(f"error saving SHAP plot: {e}")
+                plt.savefig(save_path_obj / zoom_filename, dpi=300, bbox_inches='tight', format=save_format)
+                print(f"{tp_key.upper()} zoomed SHAP plot saved to: {save_path_obj / zoom_filename}")
+                plt.close()
+
         plt.close()
-        
+
     except Exception as e:
-        print(F"error generating SHAP plot for {tp_key}, output {output_name}: {e}")
+        print(f"error generating SHAP plot for {tp_key}, output {output_name}: {e}")
         plt.close()
-        
+
+    # optionally write out the raw SHAP values to CSV
     if save_shap_df:
         shap_df = pd.DataFrame(shap_values, columns=X_data_df.columns)
         shap_df_path = Path(save_path) / f"{model_prefix}_{tp_key}_shap_values_{output_name}.csv"
         shap_df.to_csv(shap_df_path, index=False)
-        print(f"- {tp_key.upper()}SHAP values DataFrame saved to: {shap_df_path}")
+        print(f"- {tp_key.upper()} SHAP values DataFrame saved to: {shap_df_path}")
+
+    try:
+        for feat in ['LoeweFIC90_cholesterol_Constant']:
+            export_shap_feature_data(
+                shap_values=shap_values,
+                X_df=X_data_df,
+                feature_name=feat,
+                tp_key=tp_key,
+                output_name=output_name,
+                model_prefix=model_prefix,
+                save_path=save_path
+            )
+            
+    except Exception as e:
+        print(f"error exporting SHAP data for {tp_key}, output {output_name}: {e}")

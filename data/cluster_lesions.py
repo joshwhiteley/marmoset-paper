@@ -7,6 +7,8 @@ from scanpy.preprocessing import neighbors
 import scanpy.tools as tl
 import seaborn as sns
 
+from helpers.constants import PALETTE_16
+
 """
 Script to perform clustering analysis on marmoset lesion data using UMAP and Leiden
 clustering. Produces visualizations and classifies lesions as 'cool' or 'hot' based
@@ -72,34 +74,46 @@ def plot_umap_by_cluster(merged_df: pl.DataFrame):
     """Plot UMAP visualization colored by cluster."""
     plt.figure(figsize=(10, 8))
     
-    # Convert cluster column to integers
+    # get numeric cluster labels
     cluster_values = merged_df['cluster'].cast(pl.Int64).to_numpy()
     
-    # Create scatter plot
+    # sort & dedupe
+    unique_clusters = sorted(set(cluster_values))
+    
+    # build a mapping from cluster → color tuple
+    color_map = {
+        cluster: PALETTE_16[i % len(PALETTE_16)]
+        for i, cluster in enumerate(unique_clusters)
+    }
+    
+    # map each point’s cluster to its color
+    point_colors = [color_map[c] for c in cluster_values]
+    
+    # scatter with explicit colors
     plt.scatter(
         merged_df['UMAP1'].to_numpy(),
         merged_df['UMAP2'].to_numpy(),
-        c=cluster_values,
-        cmap='Dark2',
-        s=100
+        c=point_colors,
+        s=100,
+        edgecolor='k',      # optional: give points a thin black border
+        linewidth=0.2
     )
     
-    # Create legend
-    unique_clusters = sorted(set(cluster_values))
-    n_clusters = len(unique_clusters)
-    
+    # legend handles using the same mapping
     legend_elements = [
         plt.Line2D(
             [0], [0],
             marker='o',
             color='w',
-            markerfacecolor=plt.cm.Dark2(i / max(n_clusters - 1, 1)),
+            markerfacecolor=color_map[cluster],
             label=str(cluster),
-            markersize=10
+            markersize=10,
+            markeredgecolor='k',
+            markeredgewidth=0.5
         )
-        for i, cluster in enumerate(unique_clusters)
+        for cluster in unique_clusters
     ]
-    
+
     plt.legend(
         handles=legend_elements,
         title="Cluster",
