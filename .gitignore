@@ -4,3 +4,6 @@ marmoset_paper.egg-info/
 .DS_Store
 /.vscode
 archive/
+__pycache__
+modeling/models
+*_lesion_progressions_202505*
