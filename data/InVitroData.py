@@ -10,7 +10,7 @@ class DiamondData:
         if file_extension == '.xlsx':
             self.data = pl.read_excel(filepath)
         elif file_extension == '.csv':
-            self.data = pl.read_csv(filepath)
+            self.data = pl.read_csv(filepath, infer_schema_length=10000)
         else:
             raise ValueError(f"Unsupported file format: {file_extension}")
         
