@@ -1,0 +1,5 @@
+cluster_group,mse_improvement_count,mse_improvement_mean,mse_improvement_std,mse_improvement_min,mse_improvement_max,mae_improvement_mean,mae_improvement_std,r2_improvement_mean,r2_improvement_std,n_samples_sum
+2a,8,0.0411,0.2411,-0.2863,0.3632,0.0257,0.1927,0.0336,0.1941,96
+2c,8,0.1367,0.1896,-0.0905,0.5089,0.0526,0.0874,0.1056,0.1352,64
+2d,8,-0.0458,0.1272,-0.2838,0.0987,-0.0239,0.064,-0.026,0.0842,136
+2e,8,0.0314,0.2153,-0.3944,0.3959,0.0027,0.1247,0.0626,0.1776,248

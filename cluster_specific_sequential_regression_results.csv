@@ -1,0 +1,9 @@
+cluster_group,target_type,mse_improvement_mean,mse_improvement_std,mse_improvement_min,mse_improvement_max,mae_improvement_mean,mae_improvement_std,r2_improvement_mean,r2_improvement_std,n_samples_sum,severity_first,clusters
+2c,MeanHU,0.1534,0.2475,-0.0659,0.5089,0.076,0.0926,0.0941,0.1544,32,severe,"[11, 12]"
+2e,MeanHU,0.0269,0.0451,-0.032,0.0678,0.0108,0.0301,0.0144,0.0179,124,severe,"[0, 5]"
+2a,MeanHU,-0.0068,0.1972,-0.2863,0.1747,0.0096,0.1393,-0.0115,0.0988,48,severe,[2]
+2d,MeanHU,-0.1052,0.1379,-0.2838,0.0451,-0.0524,0.0739,-0.0509,0.0733,68,severe,"[4, 14]"
+2c,MeanSUV,0.1201,0.148,-0.0905,0.2542,0.0292,0.0883,0.1171,0.136,32,severe,"[11, 12]"
+2a,MeanSUV,0.089,0.301,-0.2317,0.3632,0.0419,0.258,0.0787,0.2697,48,severe,[2]
+2e,MeanSUV,0.0358,0.3256,-0.3944,0.3959,-0.0054,0.1876,0.1109,0.259,124,severe,"[0, 5]"
+2d,MeanSUV,0.0137,0.0964,-0.0904,0.0987,0.0046,0.044,-0.0011,0.0976,68,severe,"[4, 14]"
