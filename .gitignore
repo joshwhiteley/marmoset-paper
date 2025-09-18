@@ -7,3 +7,4 @@ archive/
 __pycache__
 modeling/models
 *_lesion_progressions_202505*
+.claude*
