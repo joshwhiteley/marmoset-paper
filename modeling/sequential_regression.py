@@ -16,6 +16,10 @@ from sklearn.metrics import (
     r2_score
 )
 import joblib
+import warnings
+
+# Suppress FutureWarnings from SHAP and other libraries
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 
 from data.MarmosetData import MarmosetData
@@ -42,7 +46,7 @@ def main():
     MODEL_CONFIG = {
         # data setup
         "diamond_only": False,                                  # bool
-        "marm_only": True,                                     # bool
+        "marm_only": False,                                     # bool
         "test_size": 0.2,                                       # float
 
         # model setup
@@ -53,8 +57,8 @@ def main():
         # output
         "save_models": True,                                    # bool
         "save_model_results": True,                             # bool
-        "model_results_dir": "modeling/results",                # str [dir]
-        "save_model_dir": "modeling/models/",                   # str [dir]
+        "model_results_dir": "radiodensity-only/modeling/results",                # str [dir]
+        "save_model_dir": "radiodensity-only/modeling/models/",                   # str [dir]
 
         # other
         "debug": False                                          # bool
@@ -63,9 +67,9 @@ def main():
     ANALYSIS_CONFIG = {
         "save_figures": True,                                   # bool
         "perform_feature_analysis": True,                       # bool
-        "figure_save_dir": "figures/predictions/",              # str [dir]
+        "figure_save_dir": "radiodensity-only/figures/predictions/",              # str [dir]
         "figure_save_format": "svg",                            # str [png, jpeg, svg, ...]
-        "feature_analysis_dir": "modeling/results/feature_analysis",    # str [dir]
+        "feature_analysis_dir": "radiodensity-only/modeling/feature_analysis",    # str [dir]
         "shap_sample_size": 1000,                               # int
     }
     
@@ -101,7 +105,7 @@ def main():
         print(f"First few severe lesions Lesion values: {severe_lesions['Lesion'].head(5).to_list()}")
     
     # feature selection
-    y_features = ["MeanHU", "MeanSUV"]
+    y_features = ["MeanHU"]
     metadata_features = ["Compound", "Lesion"]
     
     # feature formatting
@@ -109,9 +113,9 @@ def main():
               if any(f in col for f in y_features)]
     severe_data = severe_lesions.select(y_cols + metadata_features)
 
-    # timepoint organization
+    # timepoint organization (MeanHU only)
     timepoints = {
-        f"tp{tp}": [col for col in severe_data.columns if f"TP{tp}" in col]
+        f"tp{tp}": [col for col in severe_data.columns if f"TP{tp}" in col and "MeanHU" in col]
         for tp in range(2, 7)
     }
 
@@ -207,18 +211,20 @@ def main():
 
         if MODEL_CONFIG["debug"]:
             print(f"- Training model for {tp_key} using {len(features_for_training)} features.")
-            
-        target_cols = timepoints[tp_key]
+
+        target_col = timepoints[tp_key][0]  # Single MeanHU column per timepoint
 
         missing_train_features = [f for f in features_for_training if f not in train.columns]
-        missing_train_targets = [t for t in target_cols if t not in train.columns]
-        if missing_train_features or missing_train_targets:
-            print(f"Error: Missing columns in training data for {tp_key}.")
+        if target_col not in train.columns:
+            print(f"Error: Missing target column {target_col} in training data for {tp_key}.")
+            return
+        if missing_train_features:
+            print(f"Error: Missing feature columns in training data for {tp_key}.")
             return
 
-        # discretization 
+        # data preparation
         X_train_df = train.select(features_for_training)
-        y_train_df = train.select(target_cols)
+        y_train_df = train.select([target_col]).to_numpy().flatten()
         
         # initialize predictions df
         test_pred_df = pl.DataFrame()
@@ -230,7 +236,7 @@ def main():
         # model fitting
         try:
             model.fit(X_train_df, y_train_df)
-            models[tp_key] = model  # Store trained model
+            models[tp_key] = model
 
             # save models
             if MODEL_CONFIG["save_models"]:
@@ -260,15 +266,15 @@ def main():
             for prev_tp in range(3, tp_num)
             for feature in timepoints[f"tp{prev_tp}"]
         ]
-        
-        # predict
+
+        # predict (single output per timepoint)
         predictions = model.predict(test.select(features))
-        
+        target_col = timepoints[tp_key][0]
+
         # append to predictions df
-        for i, col_name in enumerate(timepoints[tp_key]):
-            test_pred_df = test_pred_df.with_columns(
-                pl.Series(col_name, predictions[:, i])
-            )
+        test_pred_df = test_pred_df.with_columns(
+            pl.Series(target_col, predictions)
+        )
     
     print("..........\nPredictions completed.\n----------")
     
@@ -276,23 +282,24 @@ def main():
     # Model Performance Analysis
     # ------------------------------
 
-    # calculation of various performance metrics
+    # calculation of performance metrics for MeanHU predictions
     metrics_results = []
     for tp_num in range(3, 7):
         tp_key = f"tp{tp_num}"
-        for output_name in timepoints[tp_key]:
-            y_true = test.select(output_name).to_numpy().flatten()
-            y_pred = test_pred_df.select(output_name).to_numpy().flatten()
-            mse = mean_squared_error(y_true, y_pred)
-            mae = mean_absolute_error(y_true, y_pred)
-            r2 = r2_score(y_true, y_pred)
-            metrics_results.append({
-                "timepoint": tp_num,
-                "output": output_name,
-                "mse": mse,
-                "mae": mae,
-                "r2": r2
-            })
+        output_name = timepoints[tp_key][0]  # Single MeanHU column per timepoint
+
+        y_true = test.select(output_name).to_numpy().flatten()
+        y_pred = test_pred_df.select(output_name).to_numpy().flatten()
+        mse = mean_squared_error(y_true, y_pred)
+        mae = mean_absolute_error(y_true, y_pred)
+        r2 = r2_score(y_true, y_pred)
+        metrics_results.append({
+            "timepoint": tp_num,
+            "output": output_name,
+            "mse": mse,
+            "mae": mae,
+            "r2": r2
+        })
     
     print("Error metrics by timepoint:\n")
     metrics_df = pl.DataFrame(metrics_results)
@@ -374,9 +381,10 @@ def main():
                 
             # permutation importance
             try:
-                test_non_null = test.drop_nulls(subset=current_features + [timepoints[tp_key]])
+                target_col = timepoints[tp_key][0]
+                test_non_null = test.drop_nulls(subset=current_features + [target_col])
                 X_val = test_non_null.select(current_features).to_pandas()
-                y_val = test_non_null.select(timepoints[tp_key]).to_pandas()
+                y_val = test_non_null.select([target_col]).to_pandas().values.flatten()
                 perm_importance_df = get_permutation_importance(
                     model=model,
                     X_val=X_val,
@@ -419,47 +427,26 @@ def main():
                     approximate=False
                 )
 
-                output_names = timepoints[tp_key]
-                
+                output_name = timepoints[tp_key][0]  # Single MeanHU output
+
                 if MODEL_CONFIG["debug"]:
                     print(f"shap_values type: {type(shap_values)}")
-                    if isinstance(shap_values, list):
-                        print(f"shap_values list length: {len(shap_values)}")
-                        for i, arr in enumerate(shap_values):
-                            print(f"  shap_values[{i}].shape: {arr.shape}")
-                    elif isinstance(shap_values, np.ndarray):
+                    if isinstance(shap_values, np.ndarray):
                         print(f"shap_values shape: {shap_values.shape}")
-                    print(f"output_names: {output_names}")
-                    print(f"len(output_names): {len(output_names)}")
+                    print(f"output_name: {output_name}")
 
-                if isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
-                    for i, output_name in enumerate(output_names):
-                        plot_shap_summary_dot(
-                            shap_values=shap_values[:, :, i],
-                            X_data_df=X_train_sample_pd,
-                            tp_key=tp_key,
-                            output_name=output_name,
-save_path=analysis_save_path,
-                            save_bool=True,
-                            save_format=ANALYSIS_CONFIG["figure_save_format"],
-                            save_shap_df=True,
-                            model_prefix=model_prefix
-                        )
-                elif isinstance(shap_values, list) and len(shap_values) == len(output_names):
-                    for i, output_name in enumerate(output_names):
-                        plot_shap_summary_dot(
-                            shap_values=shap_values[i],
-                            X_data_df=X_train_sample_pd,
-                            tp_key=tp_key,
-                            output_name=output_name,
-                            save_path=analysis_save_path,
-                            save_bool=True,
-                            save_format=ANALYSIS_CONFIG["figure_save_format"],
-                            save_shap_df=True,
-                            model_prefix=model_prefix
-                        )
-                else:
-                    print(f"Mismatch between # of SHAP values and outputs for {tp_key}")
+                # For single output regression, shap_values should be 2D
+                plot_shap_summary_dot(
+                    shap_values=shap_values,
+                    X_data_df=X_train_sample_pd,
+                    tp_key=tp_key,
+                    output_name=output_name,
+                    save_path=analysis_save_path,
+                    save_bool=True,
+                    save_format=ANALYSIS_CONFIG["figure_save_format"],
+                    save_shap_df=True,
+                    model_prefix=model_prefix
+                )
             except Exception as e:
                 print(f"Error during SHAP analysis/plotting for {tp_key}: {e}")
 

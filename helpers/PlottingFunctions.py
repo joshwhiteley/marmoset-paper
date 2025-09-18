@@ -8,6 +8,10 @@ from matplotlib.lines import Line2D
 from pathlib import Path
 from typing import Union, List, Optional
 import shap
+import warnings
+
+# Suppress FutureWarnings from SHAP
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 from helpers.ModelingFunctions import get_compound_abbreviation, export_shap_feature_data
 from helpers.FeatureAnalysisFunctions import categorize_features
@@ -71,8 +75,8 @@ def plot_lesion_progressions(
         replace=False
     )
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    fig.suptitle(f"Lesion Progressions for {compound}", fontsize=16)
+    fig, ax1 = plt.subplots(1, 1, figsize=(10, 6))
+    fig.suptitle(f"MeanHU Lesion Progressions for {compound}", fontsize=16)
     
     # timepoints could be shifted to weeks
     timepoints = ['TP2', 'TP3', 'TP4', 'TP5', 'TP6']
@@ -91,21 +95,11 @@ def plot_lesion_progressions(
                 for i in range(3, 7)]
         hu_pred = [hu_true[0]] + hu_pred 
         
-        suv_true = [lesion_test[f"TP{i}_MeanSUV"].to_list()[0] 
-                for i in range(2, 7)]
-        suv_pred = [lesion_pred[f"TP{i}_MeanSUV"].to_list()[0] 
-                for i in range(3, 7)]
-        suv_pred = [suv_true[0]] + suv_pred  
-        
-        #  meanHU
-        ax1.plot(x, hu_true, 'o-', color=colors[idx], 
-                label=f'Lesion {lesion}', alpha=0.7)
-        ax1.plot(x, hu_pred, 'o--', color=colors[idx], alpha=0.7)
-        
-        # meanSUV
-        ax2.plot(x, suv_true, 'o-', color=colors[idx], 
-                label=f'Lesion {lesion}', alpha=0.7)
-        ax2.plot(x, suv_pred, 'o--', color=colors[idx], alpha=0.7)
+        # MeanHU plotting
+        ax1.plot(x, hu_true, 'o-', color=colors[idx],
+                label=f'Lesion {lesion} (True)', alpha=0.7)
+        ax1.plot(x, hu_pred, 'o--', color=colors[idx],
+                label=f'Lesion {lesion} (Pred)', alpha=0.7)
     
     ax1.set_title('MeanHU')
     ax1.set_xlabel('Timepoint')
@@ -114,22 +108,14 @@ def plot_lesion_progressions(
     ax1.set_xticks(x)
     ax1.set_xticklabels(timepoints)
     ax1.grid(True, alpha=0.3)
-    
-    ax2.set_title('MeanSUV')
-    ax2.set_xlabel('Timepoint')
-    ax2.set_ylabel('MeanSUV')
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(timepoints)
-    ax2.set_ylim(0.3, 5.2)
-    ax2.grid(True, alpha=0.3)
-    
+
     # custom legend
     line_style_legend_elements = [
         Line2D([0], [0], color='black', linestyle='-', label='True'),
         Line2D([0], [0], color='black', linestyle='--', label='Predicted')
     ]
-    
-    legend1 = ax1.legend(bbox_to_anchor=(1.05, 1), 
+
+    legend1 = ax1.legend(bbox_to_anchor=(1.05, 1),
                         loc='upper left', title="Lesions")
     legend2 = ax1.legend(
         handles=line_style_legend_elements,
@@ -512,8 +498,13 @@ def plot_shap_summary_dot(
         shap_df.to_csv(shap_df_path, index=False)
         print(f"- {tp_key.upper()} SHAP values DataFrame saved to: {shap_df_path}")
 
+    # Export SHAP data for available features only
     try:
-        for feat in ['LoeweFIC90_cholesterol_Constant']:
+        # Only export if the feature exists in the current dataset
+        target_features = ['LoeweFIC90_cholesterol_Constant']
+        available_features = [feat for feat in target_features if feat in X_data_df.columns]
+
+        for feat in available_features:
             export_shap_feature_data(
                 shap_values=shap_values,
                 X_df=X_data_df,
@@ -523,6 +514,6 @@ def plot_shap_summary_dot(
                 model_prefix=model_prefix,
                 save_path=save_path
             )
-            
+
     except Exception as e:
         print(f"error exporting SHAP data for {tp_key}, output {output_name}: {e}")
