@@ -60,3 +60,19 @@ CLUSTER_GROUPS = {
     "2d": [4, 14],
     "2e": [0, 5]
 }
+
+COMPOUND_NAMES = {
+    "BDQ+DEL": "BD",
+    "BDQ+DEL+OPC": "DBO",
+    "BDQ+LIN": "BL",
+    "BDQ+LIN+PRE": "BPaL",
+    # "BDQ+OPC": "BO", # no data
+    "BDQ+PRE": "BP",
+    "DEL+OPC": "DO",
+    "EMB+INH+PZA+RIF": "HRZE",
+    "EMB+MOX+PZA+RIF": "MRZE",
+    "INH+PZA": "HZ",
+    "LIN+PRE": "PaL",
+    "MOX+RIF": "MR",
+    "PZA+RIF": "RZ"
+}
