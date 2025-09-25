@@ -63,16 +63,43 @@ CLUSTER_GROUPS = {
 
 COMPOUND_NAMES = {
     "BDQ+DEL": "BD",
-    "BDQ+DEL+OPC": "DBO",
+    "BDQ+DEL+QBS": "DBO",
     "BDQ+LIN": "BL",
     "BDQ+LIN+PRE": "BPaL",
-    # "BDQ+OPC": "BO", # no data
+    "BDQ+QBS": "BO", # no data
     "BDQ+PRE": "BP",
-    "DEL+OPC": "DO",
+    "DEL+QBS": "DO",
     "EMB+INH+PZA+RIF": "HRZE",
     "EMB+MOX+PZA+RIF": "MRZE",
     "INH+PZA": "HZ",
     "LIN+PRE": "PaL",
     "MOX+RIF": "MR",
     "PZA+RIF": "RZ"
+}
+
+FXC50_COLS = {
+  'equipotent': {
+    'FxC50_butyrate_Terminal': 'butyrate',
+    'FxC50_cholesterol_Terminal': 'cholesterol',
+    'FxC50_dormancy_Terminal': 'dormancy',
+    'FxC50_5Nequip': '5N',
+    'FxC50_7Nequip': '7N',
+    'FxC50_7Hequip': '7H',
+  },
+  'cas': {
+    'FxC50_butyrateCasPK_Terminal': 'butyrate',
+    'FxC50_cholesterolCasPK_Terminal': 'cholesterol',
+    'FxC50_dormancyCasPK_Terminal': 'dormancy',
+    'FxC50_5NcasPK': '5N',
+    'FxC50_7NcasPK': '7N',
+    'FxC50_7HcasPK': '7H',
+  },
+  'cell': {
+    'FxC50_butyrateCellPK_Terminal': 'butyrate',
+    'FxC50_cholesterolCellPK_Terminal': 'cholesterol',
+    'FxC50_dormancyCellPK_Terminal': 'dormancy',
+    'FxC50_5NcellPK': '5N',
+    'FxC50_7NcellPK': '7N',
+    'FxC50_7HcellPK': '7H',
+  }
 }
