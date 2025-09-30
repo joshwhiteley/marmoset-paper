@@ -122,6 +122,8 @@ def main():
     # in vitro feature preparation
     diamond_df = diamond_data.data.filter(
         pl.col('NumbDrugs') > 1
+    ).filter(
+        ~pl.col('Drug').str.contains('QBS') # these drugs are missing too many measurements!
     ).drop('NumbDrugs')
     combo_features = [col for col in diamond_df.columns if "Drug" not in col]
 
