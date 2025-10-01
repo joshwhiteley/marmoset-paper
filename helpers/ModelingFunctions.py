@@ -128,7 +128,8 @@ def get_compound_abbreviation(compound: str) -> str:
         "PRE": "Pa",
         "LIN": "L",
         "DEL": "D",
-        "INH": "H"
+        "INH": "H",
+        "QBS": "Q",
     }
     
     # Split compound into individual drugs
