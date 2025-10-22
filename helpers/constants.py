@@ -8,7 +8,7 @@ LESS_SEVERE_COLOR_TUPLE = (  0/255,  88/255, 139/255)
 SEVERE_COLOR_TUPLE      = (230/255, 44/255,  139/255)
 
 PALETTE_16 = [
-    (31/255, 119/255, 180/255),  # tab20[0]
+    (31/255, 119/255, 180/255), # tab20[0]
     (174/255,199/255,232/255),  # tab20[1]
     (255/255,127/255, 14/255),  # tab20[2]
     (255/255,187/255,120/255),  # tab20[3]
@@ -48,17 +48,22 @@ DIAMOND_ONLY_TUPLE = (0.9764705882352941, 0.011764705882352955, 0.57647058823529
 
 CLUSTER_GROUPS = {
     # less severe lesions, nearest neighbor via dendrogram
-    "1a": [1, 13],
-    "1b": [10],
-    "1c": [6],
-    "1d": [7],
-    "1e": [3, 8],
+    "1": [1],
+    "13": [13],
+    "10": [10],
+    "6": [6],
+    "7": [7],
+    "3": [3],
+    "8": [8],
     # severe lesions, nearest neighbor via dendrogram
-    "2a": [2],
-    "2b": [15],
-    "2c": [11, 12],
-    "2d": [4, 14],
-    "2e": [0, 5]
+    "2": [2],
+    "15": [15],
+    "11": [11],
+    "12": [12],
+    "4": [4],
+    "14": [14],
+    "0": [0],
+    "5": [5]
 }
 
 COMPOUND_NAMES = {
@@ -67,7 +72,7 @@ COMPOUND_NAMES = {
     "BDQ+LIN": "BL",
     "BDQ+LIN+PRE": "BPaL",
     "BDQ+QBS": "BO", # no data
-    "BDQ+PRE": "BP",
+    "BDQ+PRE": "BPa",
     "DEL+QBS": "DO",
     "EMB+INH+PZA+RIF": "HRZE",
     "EMB+MOX+PZA+RIF": "MRZE",
