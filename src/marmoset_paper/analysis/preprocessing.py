@@ -93,6 +93,15 @@ def cluster_table(input_file: Path, output: Path, seed: int = 0) -> dict:
     sc.pp.neighbors(adata, metric="cosine", use_rep="X", random_state=seed)
     sc.tl.umap(adata, random_state=seed)
     sc.tl.leiden(adata, resolution=1, random_state=seed, flavor="leidenalg")
+    if not all(
+        np.isfinite(values).all()
+        for values in [
+            adata.obsm["X_umap"],
+            adata.obsp["distances"].data,
+            adata.obsp["connectivities"].data,
+        ]
+    ):
+        raise ValueError("Clustering produced non-finite coordinates or graph weights")
     result = data.with_columns(
         pl.Series("UMAP1", adata.obsm["X_umap"][:, 0]),
         pl.Series("UMAP2", adata.obsm["X_umap"][:, 1]),

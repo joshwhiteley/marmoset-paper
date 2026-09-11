@@ -99,8 +99,15 @@ def plot_correlation_heatmap(rho: pd.DataFrame, p: pd.DataFrame, output: Path, t
         if positions:
             if positions[0]:
                 ax.axhline(positions[0] - 0.5, color="black", linewidth=2)
-            ax.text(len(display.columns) - 0.4, np.mean(positions), category, va="center")
-    fig.colorbar(image, ax=ax, shrink=0.8, label="Displayed ρ (Einf sign reversed)")
+            ax.text(
+                len(display.columns) - 0.4,
+                np.mean(positions),
+                category,
+                va="center",
+                rotation=90,
+                fontsize=9,
+            )
+    fig.colorbar(image, ax=ax, shrink=0.8, pad=0.12, label="Displayed ρ (Einf sign reversed)")
     ax.set(title=title, xlabel="Pathology measure", ylabel="In vitro feature")
     fig.savefig(output, bbox_inches="tight")
     plt.close(fig)

@@ -20,6 +20,7 @@ def generate(analysis_dir: Path, output: Path):
         raise ValueError("Duplicate identified predictions")
     fig, axes = plt.subplots(3, 2, figsize=(14, 10))
     plot_performance_metrics(metrics, axes[0])
+    axes[0, 0].legend(frameon=False, fontsize=9)
     axes[0, 0].text(-0.15, 1.1, "A", transform=axes[0, 0].transAxes, fontsize=18)
     selected = []
     for column, compound in enumerate(REGIMENS):
