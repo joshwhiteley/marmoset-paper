@@ -182,10 +182,15 @@ def figures_main(argv=None):
     sources = {
         "1": [args.data_dir / LESIONS, args.data_dir / "marm_data_wide_clustered.csv"],
         "2": [args.data_dir / "in_vitro_modeling.csv"],
-        "3": correlation_inputs(args.analysis_dir / "correlations"),
+        "3": correlation_inputs(args.analysis_dir / "correlations")
+        + [
+            args.analysis_dir / "correlations/in_vitro_combinations.csv",
+            args.analysis_dir / "correlations/severe_compound_means.csv",
+        ],
         "4": [args.analysis_dir / "models" / name for name in ["metrics.csv", "predictions.csv"]],
         "5": [
-            args.analysis_dir / "shap" / f"b_tp6_{name}"
+            args.analysis_dir / "shap" / f"b_{timepoint}_{name}"
+            for timepoint in ["tp4", "tp6"]
             for name in ["values.npy", "features.csv", "samples.csv"]
         ],
     }
@@ -204,7 +209,12 @@ def figures_main(argv=None):
         destination = args.output_dir / number
         print(f"Generating figure {number}: {destination}")
         module = importlib.import_module(f"marmoset_paper.figures.figure{number}")
-        with recorded_run(destination, sources[number], {"figure": number}, ROOT):
+        settings = {"figure": number}
+        if number == "3":
+            settings["scatter_pairs"] = module.SCATTER_PAIRS
+        elif number == "5":
+            settings["highlights"] = module.HIGHLIGHTS
+        with recorded_run(destination, sources[number], settings, ROOT):
             module.generate(
                 args.data_dir if number in {"1", "2"} else args.analysis_dir, destination
             )

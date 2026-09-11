@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from marmoset_paper.helpers.DataFunctions import normalize_regimen
+
 PATHOLOGY = ["TP6_MeanHU", "delta_MeanHU", "TP6_TotalVol", "delta_TotalVol"]
 
 
@@ -34,12 +36,13 @@ def paired_correlations(invitro: pd.DataFrame, pathology: pd.DataFrame):
 def run_correlations(data_dir: Path, output: Path) -> dict:
     invitro = pd.read_csv(data_dir / "in_vitro_modeling.csv")
     invitro = invitro[invitro.Drug.str.contains("+", regex=False)].copy()
-    invitro["Drug"] = invitro.Drug.str.upper()
+    invitro["Drug"] = invitro.Drug.map(normalize_regimen)
     invitro = invitro.set_index("Drug")
     if not invitro.index.is_unique:
         raise ValueError("Duplicate in vitro regimen identifiers")
     lesions = pd.read_csv(data_dir / "marm_data_wide_clustered_classif.csv")
-    lesions["Compound"] = lesions.Compound.str.upper()
+    lesions["Compound"] = lesions.Compound.map(normalize_regimen)
+    invitro.to_csv(output / "in_vitro_combinations.csv")
     for tp in [2, 6]:
         expected = lesions[f"TP{tp}_SoftVol"] + lesions[f"TP{tp}_HardVol"]
         if not np.allclose(lesions[f"TP{tp}_TotalVol"], expected, equal_nan=True):
