@@ -1,0 +1,154 @@
+"""Command-line entry points for analysis and manuscript panel generation."""
+
+import argparse
+import importlib
+from dataclasses import asdict
+from pathlib import Path
+
+from marmoset_paper.provenance import recorded_run
+
+ROOT = Path(__file__).resolve().parents[2]
+if not (ROOT / "pyproject.toml").is_file():
+    ROOT = Path.cwd()
+LESIONS = "marm_data_wide_clustered_classif.csv"
+
+
+def common_parser(description: str, output: str):
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=ROOT / "outputs" / output,
+        help="New output location; existing stage/figure directories are never overwritten",
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="Check required inputs without running"
+    )
+    return parser
+
+
+def correlation_inputs(directory: Path):
+    return [
+        directory / f"{severity}_{metric}_values_mean.csv"
+        for severity in ["severe", "less_severe"]
+        for metric in ["rho", "p"]
+    ]
+
+
+def check_inputs(parser, inputs):
+    missing = sorted({str(path) for path in inputs if not path.is_file()})
+    if missing:
+        parser.error("Missing inputs:\n  " + "\n  ".join(missing))
+
+
+def check_outputs(parser, outputs):
+    existing = [str(path) for path in outputs if path.exists()]
+    if existing:
+        parser.error(
+            "Output directories already exist; use a new --output-dir:\n  " + "\n  ".join(existing)
+        )
+
+
+def analysis_main(argv=None):
+    from marmoset_paper.analysis.correlations import run_correlations
+    from marmoset_paper.analysis.modeling import ModelConfig, train_models
+    from marmoset_paper.analysis.shap import run_shap
+
+    parser = common_parser("Run the supported LIDs manuscript analyses.", "analysis")
+    parser.add_argument(
+        "--steps",
+        nargs="+",
+        choices=["correlations", "models", "shap"],
+        default=["correlations", "models", "shap"],
+    )
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--shap-sample-size", type=int, default=1000)
+    args = parser.parse_args(argv)
+    if args.shap_sample_size < 1:
+        parser.error("--shap-sample-size must be positive")
+    sources = {
+        "correlations": [args.data_dir / LESIONS, args.data_dir / "in_vitro_modeling.csv"],
+        "models": [args.data_dir / LESIONS, args.data_dir / "in_vitro_diamond_data.csv"],
+        "shap": [args.output_dir / "models" / f"b_tp{tp}.joblib" for tp in range(3, 7)],
+    }
+    external = [
+        path
+        for step in args.steps
+        for path in sources[step]
+        if not (step == "shap" and "models" in args.steps)
+    ]
+    check_inputs(parser, external)
+    if args.check:
+        print(
+            "Inputs available. Model bundles for SHAP will be generated first."
+            if "models" in args.steps
+            else "All required inputs are available."
+        )
+        return
+    check_outputs(parser, [args.output_dir / step for step in args.steps])
+    config = ModelConfig(seed=args.seed)
+    for step in ["correlations", "models", "shap"]:
+        if step not in args.steps:
+            continue
+        destination = args.output_dir / step
+        settings = (
+            asdict(config)
+            if step == "models"
+            else {
+                "seed": args.seed,
+                "sample_size": args.shap_sample_size,
+            }
+            if step == "shap"
+            else {"aggregation": "regimen mean", "method": "spearman", "p_adjustment": None}
+        )
+        print(f"Running {step}: {destination}")
+        with recorded_run(destination, sources[step], settings, ROOT) as record:
+            if step == "correlations":
+                record["counts"] = run_correlations(args.data_dir, destination)
+            elif step == "models":
+                record["counts"] = train_models(args.data_dir, destination, config)
+            else:
+                record["counts"] = run_shap(
+                    args.output_dir / "models", destination, args.shap_sample_size, args.seed
+                )
+
+
+def figures_main(argv=None):
+    parser = common_parser(
+        "Generate manuscript panels from deposited data and a recorded analysis run.", "figures"
+    )
+    parser.add_argument(
+        "--figures", nargs="+", choices=["1", "2", "3", "4", "5"], default=["1", "2", "3", "4", "5"]
+    )
+    parser.add_argument("--analysis-dir", type=Path, default=ROOT / "outputs/analysis")
+    args = parser.parse_args(argv)
+    sources = {
+        "1": [args.data_dir / LESIONS, args.data_dir / "marm_data_wide_clustered.csv"],
+        "2": [args.data_dir / "in_vitro_modeling.csv"],
+        "3": correlation_inputs(args.analysis_dir / "correlations"),
+        "4": [args.analysis_dir / "models" / name for name in ["metrics.csv", "predictions.csv"]],
+        "5": [
+            args.analysis_dir / "shap" / f"b_tp6_{name}"
+            for name in ["values.npy", "features.csv", "samples.csv"]
+        ],
+    }
+    check_inputs(parser, [path for number in args.figures for path in sources[number]])
+    if args.check:
+        print(
+            "All required figure inputs are available. This does not validate scientific equivalence."
+        )
+        return
+    check_outputs(parser, [args.output_dir / number for number in args.figures])
+    import matplotlib
+
+    matplotlib.use("Agg")
+    matplotlib.rcParams["svg.hashsalt"] = "marmoset-paper"
+    for number in dict.fromkeys(args.figures):
+        destination = args.output_dir / number
+        print(f"Generating figure {number}: {destination}")
+        module = importlib.import_module(f"marmoset_paper.figures.figure{number}")
+        with recorded_run(destination, sources[number], {"figure": number}, ROOT):
+            module.generate(
+                args.data_dir if number in {"1", "2"} else args.analysis_dir, destination
+            )

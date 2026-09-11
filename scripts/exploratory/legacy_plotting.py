@@ -13,9 +13,9 @@ import warnings
 # Suppress FutureWarnings from SHAP
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-from helpers.ModelingFunctions import get_compound_abbreviation, export_shap_feature_data
-from helpers.FeatureAnalysisFunctions import categorize_features
-from helpers.constants import FEATURE_CATEGORY_COLORS
+from marmoset_paper.helpers.ModelingFunctions import get_compound_abbreviation, export_shap_feature_data
+from marmoset_paper.helpers.FeatureAnalysisFunctions import categorize_features
+from marmoset_paper.helpers.constants import FEATURE_CATEGORY_COLORS
 
 def plot_lesion_progressions(
     compound: str,

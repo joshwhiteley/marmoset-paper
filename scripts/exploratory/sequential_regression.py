@@ -1,3 +1,4 @@
+from marmoset_paper.helpers.ShapFunctions import calculate_shap_values
 """
 Sequential regression model for predicting lesion progression.
 
@@ -22,22 +23,21 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 
-from data.MarmosetData import MarmosetData
-from data.InVitroData import DiamondData
+from marmoset_paper.data.MarmosetData import MarmosetData
+from marmoset_paper.data.InVitroData import DiamondData
 
-from helpers.PlottingFunctions import (
+from legacy_plotting import (
     plot_lesion_progressions,
     plot_performance_metrics,
     plot_feature_importance_bars,
     plot_shap_summary_dot
 )
-from helpers.ModelingFunctions import (
+from marmoset_paper.helpers.ModelingFunctions import (
     impute_within_compound,
     split_by_compound,
 )
-from helpers.FeatureAnalysisFunctions import (
+from marmoset_paper.helpers.FeatureAnalysisFunctions import (
     get_rf_feature_importance,
-    calculate_shap_values,
     get_permutation_importance
 )
 

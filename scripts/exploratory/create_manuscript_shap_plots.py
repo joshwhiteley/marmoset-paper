@@ -18,11 +18,11 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 # Import necessary functions
-from data.MarmosetData import MarmosetData
-from data.InVitroData import DiamondData
-from helpers.ModelingFunctions import impute_within_compound, split_by_compound
-from helpers.FeatureAnalysisFunctions import categorize_features
-from helpers.constants import FEATURE_CATEGORY_COLORS
+from marmoset_paper.data.MarmosetData import MarmosetData
+from marmoset_paper.data.InVitroData import DiamondData
+from marmoset_paper.helpers.ModelingFunctions import impute_within_compound, split_by_compound
+from marmoset_paper.helpers.FeatureAnalysisFunctions import categorize_features
+from marmoset_paper.helpers.constants import FEATURE_CATEGORY_COLORS
 
 # Configuration
 CONFIG = {

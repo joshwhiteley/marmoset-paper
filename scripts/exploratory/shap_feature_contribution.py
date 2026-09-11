@@ -46,10 +46,10 @@ try:
 except ImportError:
     print("Warning: SHAP not available. SHAP calculations will be skipped.")
 
-from data.MarmosetData import MarmosetData
-from data.InVitroData import DiamondData
-from helpers.ModelingFunctions import impute_within_compound, split_by_compound
-from helpers.FeatureAnalysisFunctions import calculate_shap_values
+from marmoset_paper.data.MarmosetData import MarmosetData
+from marmoset_paper.data.InVitroData import DiamondData
+from marmoset_paper.helpers.ModelingFunctions import impute_within_compound, split_by_compound
+from marmoset_paper.helpers.ShapFunctions import calculate_shap_values
 
 # -----------------------------------------------------------------------------
 # CONSTANTS & DEFAULTS

@@ -1,5 +1,5 @@
 import polars as pl
-from helpers.PlottingFunctions import (
+from legacy_plotting import (
     plot_ground_truth_lesion_trajectory
 )
 

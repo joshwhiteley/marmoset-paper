@@ -5,7 +5,7 @@ from scipy.cluster.hierarchy import linkage
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from helpers.constants import SEVERE_CLUSTERS, LESS_SEVERE_CLUSTERS, SEVERE_COLOR_TUPLE, LESS_SEVERE_COLOR_TUPLE
+from marmoset_paper.helpers.constants import SEVERE_CLUSTERS, LESS_SEVERE_CLUSTERS, SEVERE_COLOR_TUPLE, LESS_SEVERE_COLOR_TUPLE
 
 marmoset_data = pl.read_csv("data/marm_data_wide_clustered.csv")
 

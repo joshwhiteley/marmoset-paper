@@ -7,7 +7,7 @@ from scanpy.preprocessing import neighbors
 import scanpy.tools as tl
 import seaborn as sns
 
-from helpers.constants import PALETTE_16
+from marmoset_paper.helpers.constants import PALETTE_16
 
 """
 Script to perform clustering analysis on marmoset lesion data using UMAP and Leiden

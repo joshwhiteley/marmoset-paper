@@ -84,9 +84,9 @@ def load_shap_data_for_features(
 
     # Also need the feature values from training data
     # We'll reconstruct this from the sequential regression setup
-    from data.MarmosetData import MarmosetData
-    from data.InVitroData import DiamondData
-    from helpers.ModelingFunctions import impute_within_compound, split_by_compound
+    from marmoset_paper.data.MarmosetData import MarmosetData
+    from marmoset_paper.data.InVitroData import DiamondData
+    from marmoset_paper.helpers.ModelingFunctions import impute_within_compound, split_by_compound
     import polars as pl
 
     # Load data
