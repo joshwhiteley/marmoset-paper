@@ -26,6 +26,21 @@ def git_output(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def validate_stage(directory: Path, artifacts: list[Path]) -> Path:
+    """Require a completed upstream run and verify every consumed artifact's hash."""
+    manifest = directory / "manifest.json"
+    record = json.loads(manifest.read_text())
+    if record.get("manifest_version") != 1 or record.get("status") != "complete":
+        raise ValueError(f"Upstream run is not a completed version-1 manifest: {manifest}")
+    outputs = {entry["relative_path"]: entry for entry in record["outputs"]}
+    for artifact in artifacts:
+        relative = str(artifact.relative_to(directory))
+        expected = outputs.get(relative)
+        if expected is None or file_record(artifact)["sha256"] != expected["sha256"]:
+            raise ValueError(f"Artifact does not match its upstream manifest: {artifact}")
+    return manifest
+
+
 @contextmanager
 def recorded_run(output: Path, inputs: list[Path], config: dict, root: Path):
     """Create a new output directory; retain a failed manifest if a run raises."""
@@ -35,6 +50,7 @@ def recorded_run(output: Path, inputs: list[Path], config: dict, root: Path):
     if output.exists():
         raise FileExistsError(f"Output already exists: {output}. Choose a new --output-dir.")
     record = {
+        "manifest_version": 1,
         "started_utc": datetime.now(timezone.utc).isoformat(),
         "command": sys.argv,
         "git_commit": git_output(root, "rev-parse", "HEAD"),
@@ -67,7 +83,7 @@ def recorded_run(output: Path, inputs: list[Path], config: dict, root: Path):
     finally:
         record["finished_utc"] = datetime.now(timezone.utc).isoformat()
         record["outputs"] = [
-            file_record(path)
+            {**file_record(path), "relative_path": str(path.relative_to(output))}
             for path in sorted(output.rglob("*"))
             if path.is_file() and path != manifest
         ]

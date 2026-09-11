@@ -88,8 +88,9 @@ def cluster_table(input_file: Path, output: Path, seed: int = 0) -> dict:
         raise ValueError("Clustering features must be finite")
     scaled = StandardScaler().fit_transform(X)
     adata = AnnData(scaled)
-    sc.tl.pca(adata, random_state=seed)
-    sc.pp.neighbors(adata, metric="cosine", n_pcs=len(CLUSTERING_FEATURES), random_state=seed)
+    # With five variables, the original Scanpy call selected X, not X_pca.
+    # Make that representation explicit and omit the unused PCA calculation.
+    sc.pp.neighbors(adata, metric="cosine", use_rep="X", random_state=seed)
     sc.tl.umap(adata, random_state=seed)
     sc.tl.leiden(adata, resolution=1, random_state=seed, flavor="leidenalg")
     result = data.with_columns(

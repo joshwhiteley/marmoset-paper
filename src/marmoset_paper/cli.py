@@ -5,7 +5,7 @@ import importlib
 from dataclasses import asdict
 from pathlib import Path
 
-from marmoset_paper.provenance import recorded_run
+from marmoset_paper.provenance import recorded_run, validate_stage
 
 ROOT = Path(__file__).resolve().parents[2]
 if not (ROOT / "pyproject.toml").is_file():
@@ -72,7 +72,8 @@ def analysis_main(argv=None):
         "fxc": [args.data_dir / "in_vitro_modeling.csv"],
         "correlations": [args.data_dir / LESIONS, args.data_dir / "in_vitro_modeling.csv"],
         "models": [args.data_dir / LESIONS, args.data_dir / "in_vitro_diamond_data.csv"],
-        "shap": [args.output_dir / "models" / f"b_tp{tp}.joblib" for tp in range(3, 7)],
+        "shap": [args.output_dir / "models" / f"b_tp{tp}.joblib" for tp in range(3, 7)]
+        + [args.output_dir / "models/manifest.json"],
     }
     external = [
         path
@@ -81,6 +82,10 @@ def analysis_main(argv=None):
         if not (step == "shap" and "models" in args.steps)
     ]
     check_inputs(parser, external)
+    if "shap" in args.steps and "models" not in args.steps:
+        validate_stage(
+            args.output_dir / "models", [p for p in sources["shap"] if p.name != "manifest.json"]
+        )
     if args.check:
         print(
             "Inputs available. Model bundles for SHAP will be generated first."
@@ -94,20 +99,26 @@ def analysis_main(argv=None):
         if step not in args.steps:
             continue
         destination = args.output_dir / step
-        settings = (
-            asdict(config)
-            if step == "models"
-            else {
-                "seed": args.seed,
-                "sample_size": args.shap_sample_size,
-            }
-            if step == "shap"
-            else {
-                "aggregation": "regimen mean" if step == "correlations" else None,
+        settings = {
+            "models": {
+                **asdict(config),
+                "prediction_mode": "observed_history",
+                "split_unit": "lesion_within_regimen",
+                "imputation": "compound_median_before_split",
+            },
+            "shap": {"seed": args.seed, "sample_size": args.shap_sample_size},
+            "correlations": {
+                "aggregation": "regimen mean",
                 "method": "spearman",
                 "p_adjustment": None,
-            }
-        )
+                "regimen_aliases": {"OPC": "QBS"},
+            },
+            "fxc": {"method": "spearman", "p_adjustment": None},
+        }[step]
+        if step == "shap":
+            validate_stage(
+                args.output_dir / "models", [p for p in sources[step] if p.name != "manifest.json"]
+            )
         print(f"Running {step}: {destination}")
         with recorded_run(destination, sources[step], settings, ROOT) as record:
             if step == "fxc":
@@ -194,7 +205,17 @@ def figures_main(argv=None):
             for name in ["values.npy", "features.csv", "samples.csv"]
         ],
     }
+    upstream = {"3": "correlations", "4": "models", "5": "shap"}
+    for number in dict.fromkeys(args.figures):
+        if number in upstream:
+            sources[number].append(args.analysis_dir / upstream[number] / "manifest.json")
     check_inputs(parser, [path for number in args.figures for path in sources[number]])
+    for number in dict.fromkeys(args.figures):
+        if number in upstream:
+            validate_stage(
+                args.analysis_dir / upstream[number],
+                [p for p in sources[number] if p.name != "manifest.json"],
+            )
     if args.check:
         print(
             "All required figure inputs are available. This does not validate scientific equivalence."
@@ -210,6 +231,10 @@ def figures_main(argv=None):
         print(f"Generating figure {number}: {destination}")
         module = importlib.import_module(f"marmoset_paper.figures.figure{number}")
         settings = {"figure": number}
+        if number == "2":
+            settings["panels"] = ["2B"]
+            settings["not_generated"] = "2A: source workflow not deposited"
+            print("Figure 2: generating panel B only; panel A has no deposited source workflow.")
         if number == "3":
             settings["scatter_pairs"] = module.SCATTER_PAIRS
         elif number == "5":

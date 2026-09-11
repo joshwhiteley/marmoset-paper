@@ -1,4 +1,5 @@
-# figure 1 classifications
+"""Deposited cluster assignments, figure colors, and treatment labels."""
+
 LESS_SEVERE_CLUSTERS = [1, 13, 10, 6, 9, 7, 3, 8]
 SEVERE_CLUSTERS = [2, 15, 11, 12, 4, 14, 0, 5]
 
@@ -24,10 +25,6 @@ PALETTE_16 = [
     (199 / 255, 199 / 255, 199 / 255),  # tab20[15]
 ]
 
-# figure 1 clustergram
-# (worsening) purple -> green (improvement)
-
-
 MARMOSET_ONLY_TUPLE = (
     0.011764705882352955,
     0.5764705882352941,
@@ -45,7 +42,7 @@ COMPOUND_NAMES = {
     "BDQ+DEL+QBS": "DBQ",
     "BDQ+LIN": "BL",
     "BDQ+LIN+PRE": "BPaL",
-    "BDQ+QBS": "BQ",  # no data
+    "BDQ+QBS": "BQ",
     "BDQ+PRE": "BPa",
     "DEL+QBS": "DQ",
     "EMB+INH+PZA+RIF": "HRZE",
