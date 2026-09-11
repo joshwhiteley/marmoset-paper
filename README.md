@@ -4,7 +4,7 @@ Code and data for the manuscript's lesion clustering, regimen-level correlations
 
 The main workflow starts from the deposited CSV files. It writes new results under `outputs/` and leaves the original data, figures, and modeling results alone. You do not need to run the notebooks or edit paths inside a script.
 
-**A reproduction caveat:** the original fitted forests and lesion-level split assignments were not deposited. The commands below refit the stated models with a deterministic split, but do not recover the original model scores exactly. Figure 2A also lacks a deposited generation script. See [reproduction checks and remaining differences](docs/reproducibility.md) before replacing manuscript panels.
+**A reproduction caveat:** The commands below refit the stated models with a deterministic split. See [reproduction checks and remaining differences](docs/reproducibility.md) before replacing manuscript panels.
 
 ## Run the analysis and figures
 
@@ -31,10 +31,6 @@ outputs/figures/
   1/  2/  3/  4/  5/
 ```
 
-Each stage has a `manifest.json` with input checksums, source checksums, Git revision and working-tree status, package versions, settings, and output checksums. Downstream stages include the upstream manifest in their inputs and reject changed or unrecorded artifacts. A failed stage is marked `failed`; an error is not reported as a successful analysis.
-
-Generated artifacts are ignored by Git. To preserve a run for a release, archive its complete analysis and figure directories, including the manifests and model bundles, and record the source commit. Do not distribute a model file without its feature definitions and split record.
-
 Existing stage directories are never overwritten. For another run, choose a new pair of locations:
 
 ```bash
@@ -43,8 +39,6 @@ uv run generate-manuscript-figures \
   --analysis-dir outputs/rerun/analysis \
   --output-dir outputs/rerun/figures
 ```
-
-To check inputs without running the analysis, add `--check`. Derived inputs must have a completed upstream manifest and matching output hashes. This checks availability and file integrity, not scientific equivalence.
 
 ## Which command produces each figure?
 
@@ -67,7 +61,7 @@ The numbering here follows the manuscript captions. Earlier scripts called the F
 
 The Figure 5 selection uses **terminal-phase cellular-PK dormancy GRinf at TP6** and **equipotent neutral-normoxic FBC90 at TP4**. `Termil` is the spelling in the deposited feature names, not a different phase.
 
-The original Illustrator files in `manuscript-figures/` contain the assembled layouts. The commands generate editable panel files, not pixel-identical copies of those manually assembled pages. Import the generated SVGs into the corresponding layout, retain the panel labels and legends, and check labels and source tables before export. Do not mix newly fitted model panels with historical model scores.
+The original Illustrator files in `manuscript-figures/` contain the assembled layouts. The commands generate editable panel files, not pixel-identical copies of those manually assembled pages. Import the generated SVGs into the corresponding layout, retain the panel labels and legends, and check labels and source tables before export.
 
 For only Figures 1 and 2B, no model fitting is needed:
 
