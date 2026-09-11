@@ -38,6 +38,8 @@ LABEL_TO_BUCKET = {
 def cluster_medians(data: pd.DataFrame) -> pd.DataFrame:
     """Median standardized baseline features; sample SD matches the original Polars code."""
     values = data[FEATURES]
+    if not np.isfinite(values).all().all():
+        raise ValueError("Cluster medians require finite baseline measurements")
     std = values.std(ddof=1)
     scaled = ((values - values.mean()) / std.replace(0, np.nan)).fillna(0)
     return scaled.groupby(data.cluster).median().sort_index().T.rename_axis("feature")
@@ -63,7 +65,8 @@ def generate(data_dir: Path, output: Path):
         raise ValueError("Figure 1 expects the deposited 16-cluster solution")
     if not set(classified.classif) <= {"cool", "hot"}:
         raise ValueError("Unrecognized severity classification")
-    # A and C use the same deposited embedding, not a fresh stochastic UMAP.
+    # Keep the deposited coordinates used by each original panel. The two tables
+    # contain different embeddings; see docs/reproducibility.md before reconciling them.
     plot_umap(
         clustered,
         [PALETTE_16[c] for c in clustered.cluster],

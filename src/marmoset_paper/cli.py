@@ -52,6 +52,7 @@ def check_outputs(parser, outputs):
 
 def analysis_main(argv=None):
     from marmoset_paper.analysis.correlations import run_correlations
+    from marmoset_paper.analysis.fxc import run_fxc
     from marmoset_paper.analysis.modeling import ModelConfig, train_models
     from marmoset_paper.analysis.shap import run_shap
 
@@ -59,8 +60,8 @@ def analysis_main(argv=None):
     parser.add_argument(
         "--steps",
         nargs="+",
-        choices=["correlations", "models", "shap"],
-        default=["correlations", "models", "shap"],
+        choices=["fxc", "correlations", "models", "shap"],
+        default=["fxc", "correlations", "models", "shap"],
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--shap-sample-size", type=int, default=1000)
@@ -68,6 +69,7 @@ def analysis_main(argv=None):
     if args.shap_sample_size < 1:
         parser.error("--shap-sample-size must be positive")
     sources = {
+        "fxc": [args.data_dir / "in_vitro_modeling.csv"],
         "correlations": [args.data_dir / LESIONS, args.data_dir / "in_vitro_modeling.csv"],
         "models": [args.data_dir / LESIONS, args.data_dir / "in_vitro_diamond_data.csv"],
         "shap": [args.output_dir / "models" / f"b_tp{tp}.joblib" for tp in range(3, 7)],
@@ -88,7 +90,7 @@ def analysis_main(argv=None):
         return
     check_outputs(parser, [args.output_dir / step for step in args.steps])
     config = ModelConfig(seed=args.seed)
-    for step in ["correlations", "models", "shap"]:
+    for step in ["fxc", "correlations", "models", "shap"]:
         if step not in args.steps:
             continue
         destination = args.output_dir / step
@@ -100,11 +102,17 @@ def analysis_main(argv=None):
                 "sample_size": args.shap_sample_size,
             }
             if step == "shap"
-            else {"aggregation": "regimen mean", "method": "spearman", "p_adjustment": None}
+            else {
+                "aggregation": "regimen mean" if step == "correlations" else None,
+                "method": "spearman",
+                "p_adjustment": None,
+            }
         )
         print(f"Running {step}: {destination}")
         with recorded_run(destination, sources[step], settings, ROOT) as record:
-            if step == "correlations":
+            if step == "fxc":
+                record["counts"] = run_fxc(args.data_dir, destination)
+            elif step == "correlations":
                 record["counts"] = run_correlations(args.data_dir, destination)
             elif step == "models":
                 record["counts"] = train_models(args.data_dir, destination, config)
@@ -112,6 +120,54 @@ def analysis_main(argv=None):
                 record["counts"] = run_shap(
                     args.output_dir / "models", destination, args.shap_sample_size, args.seed
                 )
+
+
+def prepare_main(argv=None):
+    from marmoset_paper.analysis.preprocessing import (
+        classify_deposited,
+        cluster_table,
+        prepare_wide,
+    )
+
+    parser = common_parser(
+        "Rebuild intermediate lesion tables without replacing deposited data.", "prepared"
+    )
+    parser.add_argument(
+        "--stage", choices=["widen", "cluster", "classify-deposited"], required=True
+    )
+    parser.add_argument("--input-file", type=Path, help="Wide CSV for --stage cluster")
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Original Scanpy default seed (clustering only)"
+    )
+    args = parser.parse_args(argv)
+    if args.input_file and args.stage != "cluster":
+        parser.error("--input-file is only used by --stage cluster")
+    sources = {
+        "widen": [
+            args.data_dir / "FINALCORRECTED_Merged_CFUandPETCT_20231005.xlsx",
+            ROOT / "config/lesion_exclusions.csv",
+        ],
+        "cluster": [args.input_file or args.data_dir / "marm_data_wide.csv"],
+        "classify-deposited": [
+            args.data_dir / "marm_data_wide_clustered.csv",
+            args.data_dir / LESIONS,
+        ],
+    }
+    check_inputs(parser, sources[args.stage])
+    if args.check:
+        print("All required preparation inputs are available.")
+        return
+    destination = args.output_dir / args.stage
+    check_outputs(parser, [destination])
+    with recorded_run(
+        destination, sources[args.stage], {"stage": args.stage, "seed": args.seed}, ROOT
+    ) as record:
+        if args.stage == "widen":
+            record["counts"] = prepare_wide(*sources["widen"], destination)
+        elif args.stage == "cluster":
+            record["counts"] = cluster_table(sources["cluster"][0], destination, args.seed)
+        else:
+            record["counts"] = classify_deposited(args.data_dir, destination)
 
 
 def figures_main(argv=None):

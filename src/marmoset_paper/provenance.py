@@ -46,6 +46,11 @@ def recorded_run(output: Path, inputs: list[Path], config: dict, root: Path):
         "config": config,
         "inputs": [file_record(path) for path in inputs],
         "lockfile": file_record(root / "uv.lock"),
+        "source_files": [
+            file_record(path)
+            for directory in [root / "src", root / "scripts"]
+            for path in sorted(directory.rglob("*.py"))
+        ],
         "status": "running",
     }
     output.mkdir(parents=True)

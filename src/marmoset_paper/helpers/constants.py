@@ -1,5 +1,3 @@
-import seaborn as sns
-
 # figure 1 classifications
 LESS_SEVERE_CLUSTERS = [1, 13, 10, 6, 9, 7, 3, 8]
 SEVERE_CLUSTERS = [2, 15, 11, 12, 4, 14, 0, 5]
@@ -28,19 +26,7 @@ PALETTE_16 = [
 
 # figure 1 clustergram
 # (worsening) purple -> green (improvement)
-FIGURE_1C_CLUSTERGRAM_PALETTE = sns.diverging_palette(145, 300, s=60, as_cmap=True)
 
-LIDS_DELIMITER = ["AcidicN", "NeutralN", "AcidicH", "NeutralH"]
-META_DELIMITER = ["Drug", "Compound", "Compound", "MarmID", "Lesion", "Consolidate", "Contour"]
-
-FEATURE_CATEGORY_COLORS = {
-    "marmoset": "tab:red",
-    "simple PK": "tab:orange",
-    "LIDS": "tab:green",
-    "simple equipotent": "tab:blue",
-    "metadata": "tab:grey",
-    "unknown": "tab:black",
-}
 
 MARMOSET_ONLY_TUPLE = (
     0.011764705882352955,
@@ -52,40 +38,16 @@ MARMOSET_IN_VITRO_TUPLE = (
     0.8290196078431373,
     0.42901960784313725,
 )  # seaborn terrain color 1
-DIAMOND_ONLY_TUPLE = (
-    0.9764705882352941,
-    0.011764705882352955,
-    0.5764705882352941,
-)  # seaborn terrain color 15
 
-CLUSTER_GROUPS = {
-    # less severe lesions, nearest neighbor via dendrogram
-    "1": [1],
-    "13": [13],
-    "10": [10],
-    "6": [6],
-    "7": [7],
-    "3": [3],
-    "8": [8],
-    # severe lesions, nearest neighbor via dendrogram
-    "2": [2],
-    "15": [15],
-    "11": [11],
-    "12": [12],
-    "4": [4],
-    "14": [14],
-    "0": [0],
-    "5": [5],
-}
 
 COMPOUND_NAMES = {
     "BDQ+DEL": "BD",
-    "BDQ+DEL+QBS": "DBO",
+    "BDQ+DEL+QBS": "DBQ",
     "BDQ+LIN": "BL",
     "BDQ+LIN+PRE": "BPaL",
-    "BDQ+QBS": "BO",  # no data
+    "BDQ+QBS": "BQ",  # no data
     "BDQ+PRE": "BPa",
-    "DEL+QBS": "DO",
+    "DEL+QBS": "DQ",
     "EMB+INH+PZA+RIF": "HRZE",
     "EMB+MOX+PZA+RIF": "MRZE",
     "INH+PZA": "HZ",

@@ -44,20 +44,3 @@ def split_by_compound(
         train.append(group.filter(~mask))
         test.append(group.filter(mask))
     return pl.concat(train), pl.concat(test)
-
-
-def get_compound_abbreviation(compound: str) -> str:
-    """Return the historical alphabetical drug abbreviation."""
-    abbreviations = {
-        "MOX": "M",
-        "RIF": "R",
-        "EMB": "E",
-        "PZA": "Z",
-        "BDQ": "B",
-        "PRE": "Pa",
-        "LIN": "L",
-        "DEL": "D",
-        "INH": "H",
-        "QBS": "Q",
-    }
-    return "".join(sorted(abbreviations[drug] for drug in compound.split("+")))

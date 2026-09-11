@@ -29,6 +29,11 @@ def generate(analysis_dir: Path, output: Path):
     plot_shap_summary(
         values[:, invitro], features.iloc[:, invitro], output / "figure_5b.svg", max_display=25
     )
+    contributions = metadata.assign(invitro_SHAP=values[:, invitro].sum(axis=1))
+    contributions.to_csv(output / "invitro_contributions_by_lesion.csv", index=False)
+    contributions.groupby("Compound")["invitro_SHAP"].agg(
+        ["mean", "median", "std", "count"]
+    ).sort_values("median").to_csv(output / "invitro_contributions_by_regimen.csv")
     for feature in HIGHLIGHTS:
         if feature not in features:
             raise ValueError(f"Missing selected SHAP feature: {feature}")
@@ -42,5 +47,5 @@ def generate(analysis_dir: Path, output: Path):
         ax.axhline(0, color="black", linestyle="--", linewidth=0.8)
         ax.set(xlabel=feature, ylabel="SHAP contribution to TP6 MeanHU (HU)")
         ax.legend(bbox_to_anchor=(1, 1), loc="upper left", fontsize=8)
-        fig.savefig(output / f"figure_5c_{feature}.svg", bbox_inches="tight")
+        fig.savefig(output / f"shap_highlight_tp6_{feature}.svg", bbox_inches="tight")
         plt.close(fig)

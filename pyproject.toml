@@ -33,6 +33,7 @@ clustering = [
 notebooks = ["ipykernel>=6.29.5,<7"]
 
 [project.scripts]
+prepare-manuscript-data = "marmoset_paper.cli:prepare_main"
 generate-manuscript-figures = "marmoset_paper.cli:figures_main"
 run-manuscript-analysis = "marmoset_paper.cli:analysis_main"
 
@@ -45,7 +46,7 @@ packages = ["src/marmoset_paper"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-extend-exclude = ["notebooks", "scripts/exploratory", "revisions", "um1", "tmp"]
+extend-exclude = ["notebooks", "revisions", "um1", "tmp"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

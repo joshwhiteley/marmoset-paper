@@ -3,21 +3,6 @@
 import pandas as pd
 from sklearn.inspection import permutation_importance
 
-from marmoset_paper.helpers.constants import LIDS_DELIMITER, META_DELIMITER
-
-
-def categorize_features(feature_name: str) -> str:
-    """Classify a feature using the manuscript naming conventions."""
-    if feature_name.startswith("TP"):
-        return "marmoset"
-    if "Simple" in feature_name:
-        return "simple PK"
-    if any(delimiter in feature_name for delimiter in LIDS_DELIMITER):
-        return "LIDS"
-    if any(delimiter in feature_name for delimiter in META_DELIMITER):
-        return "metadata"
-    return "simple equipotent"
-
 
 def get_rf_feature_importance(model, feature_names: list[str]) -> pd.DataFrame:
     """Return mean-decrease-in-impurity importances in descending order."""
