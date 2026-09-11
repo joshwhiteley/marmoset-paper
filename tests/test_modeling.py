@@ -67,6 +67,15 @@ def test_deposited_cohort_matches_updated_methods():
     assert set(train["MarmID"]) & set(test["MarmID"])
 
 
+def test_imputation_does_not_change_the_deposited_modeling_measurements():
+    data, invitro, _ = prepare_model_data(ROOT / "data")
+    for features in [["TP2_MeanHU"], ["TP2_MeanHU"] + invitro]:
+        original = data.select(features)
+        imputed = impute_within_compound(data, features).select(features)
+        assert original.null_count().row(0) == imputed.null_count().row(0)
+        np.testing.assert_array_equal(original.to_numpy(), imputed.to_numpy())
+
+
 def test_duplicate_regimen_join_is_rejected(tmp_path):
     for name in ["marm_data_wide_clustered_classif.csv", "in_vitro_diamond_data.csv"]:
         frame = pd.read_csv(ROOT / "data" / name)

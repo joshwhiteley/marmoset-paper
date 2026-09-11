@@ -16,5 +16,7 @@ jobs:
       - run: uv run ruff check src tests scripts
       - run: uv run ruff format --check src tests scripts
       - run: uv run pytest
+      - run: sha256sum -c config/input_checksums.sha256
       - run: uv run run-manuscript-analysis --check
       - run: uv run generate-manuscript-figures --figures 1 2 --output-dir outputs/ci-figures
+      - run: uv build --out-dir outputs/dist
